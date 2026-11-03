@@ -33,7 +33,7 @@ export GIT_CONFIG_COUNT=1
 export GIT_CONFIG_KEY_0='url.https://github.com/.insteadOf'
 export GIT_CONFIG_VALUE_0='git@github.com:'
 
-TREE="${1:-obsoletium}"
+TREE="${1:-.}"
 FORCE=""
 [ "${2:-}" = "--force" ] && FORCE="--force"
 
