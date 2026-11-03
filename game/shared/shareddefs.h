@@ -13,6 +13,26 @@
 
 #include <type_traits>
 
+// TICK_INTERVAL below expands to "gpGlobals->interval_per_tick", and it is used
+// inside the TIME_TO_TICKS / TICKS_TO_TIME / ROUND_TO_TICKS function templates.
+// GCC 14 and newer report a name it cannot resolve in a template body as a hard
+// error rather than a warning, so the templates have to see a declaration at
+// this point. This header is reached from the middle of the include chain of the
+// two files that actually declare gpGlobals -- game/server/util.h includes
+// shareddefs.h at line 32 and declares gpGlobals at line 185, and
+// game/client/cdll_client_int.h does the same -- so including either of them
+// from here would be a no-op cycle. A matching forward declaration is enough:
+// the complete type is required only when the templates are instantiated, long
+// after the including translation unit has pulled in the real header. The two
+// targets disagree on the pointer type, so pick the one this build is for.
+#if defined( CLIENT_DLL )
+class CGlobalVarsBase;
+extern CGlobalVarsBase *gpGlobals;
+#else
+class CGlobalVars;
+extern CGlobalVars *gpGlobals;
+#endif
+
 #define TICK_INTERVAL			(gpGlobals->interval_per_tick)
 
 template<typename TDelta, typename TValue>

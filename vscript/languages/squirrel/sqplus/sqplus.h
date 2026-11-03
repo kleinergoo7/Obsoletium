@@ -83,6 +83,11 @@
     #include <stdio.h> // for snprintf
     #define SCPUTS puts
   #endif
+  // dimhotepus: SCFPUTS was only defined on the MSVC/Borland branch, so
+  // SquirrelVM.cpp could not compile it. fputs is the portable equivalent.
+  #ifndef SCFPUTS
+    #define SCFPUTS fputs
+  #endif
 #endif
 
 
@@ -208,7 +213,7 @@ struct ScriptStringVar : ScriptStringVarBase {
     return safeStringCopy(s,_s.s,MaxLength);
   }
   bool operator == (const ScriptStringVar & _s) {
-    return _strcmp(s,_s.s) == 0;
+    return strcmp(s, _s.s) == 0;
   }
   bool compareCaseInsensitive(const ScriptStringVar & _s) {
     return _stricmp(s,_s.s) == 0;

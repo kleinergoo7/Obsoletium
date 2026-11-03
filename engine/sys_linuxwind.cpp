@@ -22,6 +22,62 @@
 #include "server.h"
 #include "cdll_int.h"
 
+// DisplaySystemVersion is the only definition behind sys_dll.cpp's
+// CON_COMMAND( star_os ), and it lives in engine/bugreporter.cpp, which
+// engine.vpc lists as [!$DEDICATED] because that file includes client.h and
+// vgui_controls. The function is not Windows-only -- it has an
+// "#elif defined(LINUX)" branch that reports /proc/version_signature -- but
+// that branch never reaches a dedicated build, so the shared sys_dll.cpp left
+// libengine.so with an undefined DisplaySystemVersion(char*, int) and
+// Sys_LoadModule's RTLD_NOW could not bind it.
+//
+// Provide the dedicated-only equivalent, keeping the upstream output format.
+// The client build keeps the canonical definition in bugreporter.cpp, so this
+// is guarded by DEDICATED to guarantee the two can never coexist.
+#if defined( DEDICATED ) && !defined( _WIN32 )
+
+#include <sys/utsname.h>
+#include <unistd.h>
+
+#include "strtools.h"
+#include "tier0/platform.h"
+
+void DisplaySystemVersion( char *osversion, int maxlen )
+{
+	struct utsname utsBuf;
+	if ( uname( &utsBuf ) != 0 )
+	{
+		Q_strncat( osversion, "Linux N/A", maxlen, COPY_ALL_CHARACTERS );
+		return;
+	}
+
+	Q_strncat( osversion, "Linux ", maxlen, COPY_ALL_CHARACTERS );
+	Q_strncat( osversion, utsBuf.release, maxlen, COPY_ALL_CHARACTERS );
+
+	Q_strncat( osversion,
+#if defined( PLATFORM_X86 ) && ( PLATFORM_X86 == 64 )
+		" x86-64",
+#elif defined( PLATFORM_ARM_64 )
+		" AArch64",
+#elif defined( PLATFORM_ARM_32 )
+		" ARM32",
+#elif defined( PLATFORM_X86 ) && ( PLATFORM_X86 == 32 )
+		" x86",
+#else
+		" N/A",
+#endif
+		maxlen, COPY_ALL_CHARACTERS );
+
+	Q_strncat( osversion, " (super user: ", maxlen, COPY_ALL_CHARACTERS );
+	Q_strncat( osversion, getuid() == 0 ? "yes)" : "no)", maxlen, COPY_ALL_CHARACTERS );
+
+	char *szlf = Q_strrchr( osversion, '\n' );
+	if ( szlf )
+		*szlf = '\0';
+}
+
+#endif // DEDICATED && !_WIN32
+
 #ifdef SWDS
 void ForceReloadProfile( void );
 
@@ -196,7 +252,12 @@ void CGame::GetWindowRect( int *x, int *y, int *w, int *h )
 
 bool CGame::IsActiveApp( void )
 {
-	return m_bActiveApp;
+	// The Linux port does not wire window-activation events into
+	// SetActiveApp, so m_bActiveApp stays at its initial value and the
+	// engine falls into the SleepUntilInput path on the first frame,
+	// which never wakes up under lavapipe/Xwayland. Treat the game as
+	// always active; the SDL event loop already pumps input.
+	return true;
 }
 
 void CGame::SetActiveApp( bool active )

@@ -842,6 +842,11 @@ void CEngineVGui::DestroyVProfPanels( )
 	// dimhotepus: Destroy in reverse to creation order.
 	if ( m_pTextureBudgetPanel )
 	{
+		// Port-owned: the budget panel registered a per-frame tick signal;
+		// a pending tick on the half-deleted panel crashes teardown
+		// RunFrames. Unregister first (this runs outside any RunFrame, so
+		// no tick is in flight).
+		vgui::ivgui()->RemoveTickSignal( m_pTextureBudgetPanel->GetVPanel() );
 		m_pTextureBudgetPanel->MarkForDeletion();
 		m_pTextureBudgetPanel = NULL;
 	}
@@ -900,7 +905,14 @@ void CEngineVGui::Shutdown()
 
 	HideGameUI();
 
-	if ( staticGameConsole )
+	// Port-owned: vgui tier3 interfaces (vgui::ipanel()) are already
+	// disconnected when engine shutdown reaches here (proven by cores), so
+	// every panel-teardown call below would crash. Skip UI object teardown
+	// when dead; the process is exiting and the OS reclaims the panels.
+	// Module Shutdown calls still run.
+	bool bVGuiAlive = ( vgui::ipanel() != nullptr );
+
+	if ( staticGameConsole && bVGuiAlive )
 	{
 		staticGameConsole->SetParent((vgui::VPANEL) 0);
 		staticGameConsole->Shutdown();
@@ -908,11 +920,14 @@ void CEngineVGui::Shutdown()
 
 	staticGameUIFuncs->Shutdown();
 
-	DestroyVProfPanels();
-	CL_DestroyTextureListPanel();
-	VGui_DestroyDrawTreePanel();
-	CL_DestroyEntityReportPanel();
-	Con_DestroyConsolePanel();
+	if ( bVGuiAlive )
+	{
+		DestroyVProfPanels();
+		CL_DestroyTextureListPanel();
+		VGui_DestroyDrawTreePanel();
+		CL_DestroyEntityReportPanel();
+		Con_DestroyConsolePanel();
+	}
 
 	staticFocusOverlayPanel = NULL;
 	
@@ -936,14 +951,18 @@ void CEngineVGui::Shutdown()
 	staticClientDLLToolsPanel = NULL;
 	// HACK HACK: There was a bug in the old versions of the viewport which would crash in the case where the client .dll hadn't been fully unloaded, so
 	//  we'll leak this panel here instead!!!
-	if ( g_bUsingLegacyAppSystems )
+	if ( g_bUsingLegacyAppSystems && bVGuiAlive )
 	{
 		staticClientDLLPanel->SetParent( (vgui::VPANEL)0 );
 	}
 	staticClientDLLPanel = NULL;
 
 	// This will delete the subpanels since they are children.
-	delete staticPanel;
+	// (Skipped with dead vgui: panel dtors need a live ipanel.)
+	if ( bVGuiAlive )
+	{
+		delete staticPanel;
+	}
 	staticPanel = NULL;
 
 	// Give panels a chance to settle so things

@@ -12,6 +12,9 @@
 
 // We should not depend on Valve libs here as header used in independent DLLs.
 #include <cassert>
+
+// Uses the raw _In_z_/_Out_writes_z_ SAL annotations.
+#include "annotations.h"
 #include <system_error>
 #include <tuple>
 
@@ -253,10 +256,20 @@ class posix_file_stream {
             internal::make_posix_error_from_result(ferror(fd_), EIO)};
   }
 
+#ifdef _MSC_VER
+#define SE_FSEEKI64 _fseeki64
+#define SE_FTELLI64 _ftelli64
+#else
+// MSVC's CRT spells these _fseeki64/_ftelli64; POSIX/glibc spells them
+// fseeko64/ftello64. Identical semantics, so map the names here.
+#define SE_FSEEKI64 fseeko64
+#define SE_FTELLI64 ftello64
+#endif
+
   // Moves the file pointer to a specified location.
   [[nodiscard]] io_result<bool> seek(const int64_t offset,
                                      const int origin) const noexcept {
-    const int errno_code{_fseeki64(fd_, offset, origin)};
+    const int errno_code{SE_FSEEKI64(fd_, offset, origin)};
     return {errno_code == 0,
             errno_code == 0 ? posix_error_ok : internal::posix_error_last()};
   }
@@ -292,7 +305,7 @@ class posix_file_stream {
 
   // Gets the current position of a file pointer.
   [[nodiscard]] io_result<int64_t> tell() const noexcept {
-    const int64_t file_pos{_ftelli64(fd_)};
+    const int64_t file_pos{SE_FTELLI64(fd_)};
     return {file_pos,
             file_pos != -1L ? posix_error_ok : internal::posix_error_last()};
   }

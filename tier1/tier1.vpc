@@ -24,6 +24,21 @@ $Configuration
 
 $Project "tier1"
 {
+	$Folder	"Link libraries"
+	{
+		// tier1/uniqueid.cpp calls uuid_generate, uuid_parse and
+		// uuid_unparse_lower, but nothing declared that dependency, so
+		// libtier1.so was left with three undefined uuid_* symbols. Shared
+		// objects tolerate that, and libengine.so happened to cover for it
+		// because engine/engine.vpc lists uuid, but an executable cannot:
+		// linking dedicated_main against libtier1.so failed with
+		//   libtier1.so: undefined reference to `uuid_unparse_lower'
+		// and ninja had to delete the previous binary. Declaring it here makes
+		// the module self-contained, so anything linking tier1 resolves uuid
+		// through libtier1's own DT_NEEDED.
+		$Lib	uuid
+	}
+
 	$Folder	"Source Files"
 	{
 		$File	"bitbuf.cpp"

@@ -33,8 +33,8 @@
 #endif
 
 #ifdef USE_SDL
-#include "SDL_clipboard.h"
-#include "SDL_error.h"
+#include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_error.h>
 #endif
 
 #define PROTECTED_THINGS_DISABLE
@@ -221,7 +221,7 @@ void CSystem::RunFrame()
 	{
 		// check for mouse movement
 		int x, y;
-		g_pInput->GetCursorPos(x, y);
+		g_pWin32Input->GetCursorPos(x, y);
 		// allow a little slack for jittery mice, don't reset until it's moved more than fifty pixels
 		if (abs((x + y) - (m_iStaticMouseOldX + m_iStaticMouseOldY)) > 50)
 		{

@@ -1302,10 +1302,53 @@ void CMP3Player::PopulateTree()
 }
 
 // Instead of including windows.h
+#ifdef POSIX
+#include <cstdio>
+// Native POSIX file copy (port-owned): kernel32!CopyFileA is unavailable.
+// Honors bFailIfExists; returns nonzero on success like the Win32 original.
+extern "C" int __attribute__((visibility("default")))
+CopyFileA(char *pszSource, char *pszDest, int bFailIfExists) {
+  if (!pszSource || !pszDest) {
+    return 0;
+  }
+  if (bFailIfExists) {
+    FILE *probe = fopen(pszDest, "rb");
+    if (probe) {
+      fclose(probe);
+      return 0;
+    }
+  }
+  FILE *src = fopen(pszSource, "rb");
+  if (!src) {
+    return 0;
+  }
+  FILE *dst = fopen(pszDest, "wb");
+  if (!dst) {
+    fclose(src);
+    return 0;
+  }
+  char buf[16384];
+  size_t n;
+  bool ok = true;
+  while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+    if (fwrite(buf, 1, n, dst) != n) {
+      ok = false;
+      break;
+    }
+  }
+  if (ferror(src)) {
+    ok = false;
+  }
+  fclose(src);
+  fclose(dst);
+  return ok ? 1 : 0;
+}
+#else
 extern "C"
 {
 	extern int __stdcall CopyFileA( char *pszSource, char *pszDest, int bFailIfExists );
 };
+#endif
 
 void CMP3Player::GetLocalCopyOfSong( const MP3File_t &f, OUT_Z_CAP(outlen) char *outsong, size_t outlen )
 {

@@ -756,7 +756,12 @@ BASEPTR	CBaseEntity::ThinkSet( BASEPTR func, float thinkTime, const char *szCont
 #if !defined( CLIENT_DLL )
 #ifdef _DEBUG
 #ifdef GNUC
-	COMPILE_TIME_ASSERT( sizeof(func) == 8 );
+	// BASEPTR is a pointer-to-member-function (see baseentity.h), not a plain
+	// function pointer. MSVC represents those as a single pointer, 8 bytes on
+	// x64, but the Itanium C++ ABI that GCC targets uses a (fn ptr, adjustment)
+	// pair, so the real size is 2 * sizeof(void*). Asserting 8 made this file
+	// fail to compile on every Linux build.
+	COMPILE_TIME_ASSERT( sizeof(func) == 2 * sizeof(void*) );
 #else
 	COMPILE_TIME_ASSERT( sizeof(func) == sizeof(void*) );
 #endif

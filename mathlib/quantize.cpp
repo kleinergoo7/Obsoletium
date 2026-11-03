@@ -566,8 +566,18 @@ FHeap TheQueue;
   if ((a)->MinError < besterror) HeapInsert(&TheQueue,&(a)->MinError); \
  } while (false)
 
+// The header (public/mathlib/quantize.h) declares this as
+//   QuantizedValue *FindMatch( uint8 const *sample, int ndims,
+//                              uint8 *weights, QuantizedValue *QTable );
+// with a plain (non-const) third parameter, and imagequant.cpp calls it with
+// a non-const Weights array. The definition below used to add a stray
+// "const" on that parameter. In C++ that is a different function, so the
+// exported symbol had a different mangled name and the real caller stayed
+// unresolved, and the game DLL load failed with:
+//   libserver_CStrike.so: undefined symbol:
+//   _Z9FindMatchPKhiPhP14QuantizedValue
 QuantizedValue *FindMatch(uint8 const *sample, int ndims,
-								 const uint8 *weights, QuantizedValue *q)
+								 uint8 *weights, QuantizedValue *q)
 {
 	InitHeap(&TheQueue);
 	QuantizedValue *bestmatch=0;

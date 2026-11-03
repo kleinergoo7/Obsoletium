@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include "tier0/platform.h"
+#include "datacache/imdlcache.h"
 #include "studiorendercontext.h"
 #include "optimize.h"
 #include "materialsystem/imaterialvar.h"
@@ -686,8 +687,29 @@ inline const mstudio_meshvertexdata_t * GetFatVertexData( mstudiomesh_t * pMesh,
 {
 	if ( !pMesh->pModel()->CacheVertexData( pStudioHdr ) )
 	{
-		// not available yet
-		return NULL;
+		// No draw active (load-time mesh builds): the draw-global studio
+		// header is null, and the check above always fails. Populate from
+		// the resident vertex block directly instead (mirrors the
+		// mstudiomodel_t/mstudiomesh_t::GetVertexData success paths, which
+		// would otherwise re-null through the same global). The datacache
+		// handle cache already holds the block (BuildHardwareData gates).
+		if ( !pStudioHdr )
+			return NULL;
+		vertexFileHeader_t *pVvdHdr = g_pMDLCache->GetVertexData( VoidPtrToMDLHandle( pStudioHdr->VirtualModel() ) );
+		if ( !pVvdHdr )
+			return NULL;
+		mstudiomodel_t *pModel = pMesh->pModel();
+		pModel->vertexdata.pVertexData = pVvdHdr->GetVertexData();
+		pModel->vertexdata.pTangentData = pVvdHdr->GetTangentData();
+		if ( !pModel->vertexdata.pVertexData )
+			return NULL;
+		pMesh->modelvertexdata = &pModel->vertexdata;
+#ifdef PLATFORM_64BITS
+		pMesh->vertexdata.index_modelvertexdata = size_cast<int>( (byte *)&pMesh->modelvertexdata - (byte *)&pMesh->vertexdata );
+#endif
+		if ( !pMesh->vertexdata.pModelVertexData()->pVertexData )
+			return NULL;
+		return &pMesh->vertexdata;
 	}
 	const mstudio_meshvertexdata_t *pVertData = pMesh->GetVertexData( pStudioHdr );
 	Assert( pVertData );

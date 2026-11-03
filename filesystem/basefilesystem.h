@@ -26,19 +26,33 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+// Portable spelling for the shared "struct _stat" sources below; see the POSIX
+// branch for why the type cannot just be spelled "_stat" everywhere.
+#define STAT_TYPE _stat
+
 #include "tier0/threadtools.h"
 #include "tier1/utldict.h"
 
 #elif defined(POSIX)
 	#include <unistd.h> // unlink
+	#include <sys/stat.h> // chmod, stat
 	#include "linux_support.h"
 	#define INVALID_HANDLE_VALUE (void *)-1
 
 	// undo the prepended "_" 's
 	#define _chmod chmod
-	#define _stat stat
+	// "stat" is both a global function and a global struct in C++, so an
+	// unqualified call binds to the struct's constructor. Qualify with "::" to
+	// reach the function.
+	#define _stat ::stat
+	#define STAT_TYPE stat
 	#define _alloca alloca
 	#define _S_IFDIR S_IFDIR
+
+	// CUtlDict<> is used below outside any platform branch, so the POSIX arm
+	// needs utldict.h too. The Win32 arm above already includes it; here it
+	// usually only arrived via the tier0/stdafx.h precompiled header.
+	#include "tier1/utldict.h"
 #endif
 
 #include <ctime>

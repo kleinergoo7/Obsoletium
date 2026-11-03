@@ -99,8 +99,10 @@ void CProceduralTexturePanel::MaintainProportions( bool bEnable )
 //-----------------------------------------------------------------------------
 void CProceduralTexturePanel::CleanUp()
 {
-	// dimhotepus: Do not leak texture.
-	if ( m_nTextureID != -1 )
+	// Port-owned: the matsys surface interface is already shut down this
+	// late in engine shutdown (GameUI nulls the shared matsyscontrols
+	// globals before engine teardown finishes); texture IDs die with it.
+	if ( m_nTextureID != -1 && MatSystemSurface() )
 	{
 		MatSystemSurface()->DestroyTextureID( m_nTextureID );
 		m_nTextureID = -1;

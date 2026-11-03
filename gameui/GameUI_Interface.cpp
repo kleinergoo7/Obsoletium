@@ -164,6 +164,8 @@ void CGameUI::Initialize( CreateInterfaceFn factory )
 	ConnectTier2Libraries( &factory, 1 );
 	ConVar_Register( FCVAR_CLIENTDLL );
 	ConnectTier3Libraries( &factory, 1 );
+	// TEMP S2.8 diagnosis (revert): verify the shared tier3 copy connects.
+	(void)g_pVGuiSchemeManager; (void)g_pVGuiSurface; (void)g_pVGui;
 
 	enginesound = (IEngineSound *)factory(IENGINESOUND_CLIENT_INTERFACE_VERSION, NULL);
 	engine = (IVEngineClient *)factory( VENGINE_CLIENT_INTERFACE_VERSION, NULL );
@@ -659,14 +661,10 @@ void CGameUI::Shutdown()
 	staticPanel->MarkForDeletion();
 	staticPanel = nullptr;
 
-	g_pSourceVR = nullptr;
-	
-	g_pEngineClientReplay = nullptr;
-	xboxsystem  = nullptr;
-	matchmaking = nullptr;
-	gameuifuncs = nullptr;
-	enginesurfacefuncs = nullptr;
-	enginevguifuncs = nullptr;
+	// Port-owned: the tier imports below (g_pSourceVR..enginesound) used to
+	// be nulled here; they are process-wide singletons on Linux (see
+	// cdll_client_int.cpp), so nulling them vandalizes modules that
+	// outlive GameUI. They stay valid until launcher PostShutdown.
 
 	// Give panels a chance to settle so things
 	//  Marked for deletion will actually get deleted
@@ -678,14 +676,14 @@ void CGameUI::Shutdown()
 	vgui::VGui_ShutdownInterfacesList( "gameui" );
 	
 	steamapicontext->Clear();
-	
-	engine = nullptr;
-	enginesound = nullptr;
 
-	DisconnectTier3Libraries();
-	ConVar_Unregister();
-	DisconnectTier2Libraries();
-	DisconnectTier1Libraries();
+	// Port-owned: engine/enginesound used to be nulled here; same
+	// process-wide singleton reason as above. Left valid.
+
+	// Port-owned: see cdll_client_int.cpp — the tier1/2/3 globals and the
+	// convar registry are process-wide on Linux; tearing them down here
+	// would vandalize every module that outlives GameUI (engine shutdown
+	// runs after it). They stay valid until launcher PostShutdown.
 }
 
 //-----------------------------------------------------------------------------

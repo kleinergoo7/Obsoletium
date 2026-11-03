@@ -704,6 +704,20 @@ bool ConVar::IsRegistered( ) const
 
 const char *ConVar::GetName( ) const
 {
+	// Defensive guard: libengine and libserver historically exported a symbol
+	// named `sv_noclipduringpause` with different layouts (engine: a bare 8-byte
+	// `ConVar *` sentinel global; server: a full ConVar). Linux dynamic-symbol
+	// interposition bound the game-side registration to the engine's pointer, so
+	// a cvar-hash entry could end up pointing at that sentinel whose m_pParent
+	// slot is garbage. Dereferencing it here crashed the dedicated server
+	// (SIGSEGV, fault addr = m_pParent + 0x18) inside CCvar::FindVar during
+	// SV_InitGameDLL. The engine's pointer was renamed to `s_pNoclipDuringPause`
+	// to end the collision, but keep the guard: a null/insane parent is treated
+	// as anonymous so the caller's V_strieq simply does not match the entry; the
+	// genuine server ConVar registered under the same name is later in the same
+	// bucket chain and is found as normal.
+	if ( !m_pParent || (uintptr_t)m_pParent < 0x10000 || (uintptr_t)m_pParent > (uintptr_t)0x7fffffffffff )
+		return nullptr;
 	return m_pParent->m_pszName;
 }
 
@@ -809,7 +823,15 @@ void ConVar::ChangeStringValue( const char *tempVal, float flOldValue )
 			m_fnChangeCallback( this, pszOldValue, flOldValue );
 		}
 
-		g_pCVar->CallGlobalChangeCallbacks( this, pszOldValue, flOldValue );
+		// A dedicated server's shutdown can disconnect the cvar system
+		// before an engine ConVar is reverted: Host_Shutdown() unloads the
+		// game DLL, and that runs DisconnectTier1Libraries()
+		// (gameinterface.cpp), which nulls tier1's g_pCVar. Dereferencing it
+		// here SIGSEGVs (ConVar::ChangeStringValue, libtier1+0x7058c, fault
+		// addr 0x0) while reversing developer etc. With no cvar system left,
+		// there is nothing to notify.
+		if ( g_pCVar )
+			g_pCVar->CallGlobalChangeCallbacks( this, pszOldValue, flOldValue );
 	}
 
 	stackfree( pszOldValue );

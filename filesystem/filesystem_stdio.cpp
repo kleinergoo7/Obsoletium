@@ -561,7 +561,7 @@ int CFileSystem_Stdio::FS_chmod( const char *pathT, int pmode )
 	char path[ MAX_PATH ];
 	CBaseFileSystem::FixUpPath ( pathT, path );
 
-	const int rt = _chmod( path, pmode );
+	int rt = _chmod( path, pmode );
 #if defined(LINUX)
 	if ( rt == -1 )
 	{
@@ -738,6 +738,11 @@ CStdioFile *CStdioFile::FS_fopen( const char *filenameT, const char *options, in
 			*p = '\0';
 	}
 
+	// Function scope: the write-lock bookkeeping further down keys off
+	// buf.st_ino, and that block is not nested inside the "if (pFile && size)"
+	// block below.
+	struct STAT_TYPE buf;
+
 	FILE *pFile = fopen( filename, options );
 
 #ifdef LINUX
@@ -760,7 +765,6 @@ CStdioFile *CStdioFile::FS_fopen( const char *filenameT, const char *options, in
 	if (pFile && size)
 	{
 		// todo: replace with filelength()? 
-		struct _stat buf;
 		int rt = _stat( filename, &buf );
 		if (rt == 0)
 		{
@@ -845,7 +849,7 @@ void CStdioFile::FS_fclose()
 	{
 		AUTO_LOCK( m_MutexLockedFD );
 
-		struct _stat buf;
+		struct STAT_TYPE buf;
 		int fd = fileno_unlocked( m_pFile );
 		fstat( fd, &buf );
 

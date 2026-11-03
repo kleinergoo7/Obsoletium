@@ -11,10 +11,29 @@
 #include "enginestats.h"
 #include "bspfile.h" // dworldlight_t
 #include "audio/public/soundservice.h"
+#include "audio/public/snd_device.h"
+#include "ivideomode.h"
 #include "tier0/systeminformation.h"
 
 ISoundServices *g_pSoundServices = NULL;
 Vector		listener_origin;
+
+// The dedicated server has no display and no audio output, but the shared
+// engine sources still reference both globals:
+//
+//   ivideomode.h:  extern IVideoMode *videomode;   (defined in sys_getmodes.cpp,
+//                  which engine.vpc lists as [!$DEDICATED])
+//   sound_private.h: extern IAudioDevice *g_AudioDevice;  (client audio device,
+//                  none on a server)
+//
+// Every use in the dedicated source set is already a null check --
+// sys_dll.cpp ShutdownEngineAudio/videomode->Shutdown(), the star_audio_render
+// and star_displayvars console commands -- so a null definition is the correct
+// value and lets those checks report "not available" instead of the link
+// failing. The client build is unaffected: this file is engine.vpc's
+// ["cl_null.cpp" [$DEDICATED]] stub.
+IVideoMode *videomode = NULL;
+IAudioDevice *g_AudioDevice = NULL;
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"

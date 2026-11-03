@@ -11,7 +11,11 @@ CClientSteamContext  &ClientSteamContext()
 	return g_ClientSteamContext;
 }
 
+// Port: under NO_STEAM the null stub in public/steam/steam_nosteam_stubs.cpp
+// owns this global; an unguarded second definition breaks the client link.
+#if !defined(NO_STEAM)
 CSteamAPIContext *steamapicontext = &g_ClientSteamContext;
+#endif
 
 //-----------------------------------------------------------------------------
 CClientSteamContext::CClientSteamContext() 

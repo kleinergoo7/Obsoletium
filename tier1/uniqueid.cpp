@@ -15,9 +15,9 @@
 #include "winlite.h" // UUIDCreate
 #include <rpc.h>
 #else
-#ifdef LINUX
-#include <uuid.h>
-#elif defined(OSX)
+#ifdef LINUX || defined(OSX)
+// Both Linux (util-linux) and macOS provide libuuid under <uuid/uuid.h>;
+// there is no top-level <uuid.h> on either.
 #include <uuid/uuid.h>
 #endif
 #endif

@@ -27,8 +27,26 @@ $Project
 		$Lib	vpklib
 		$Libexternal $SRCDIR\thirdparty\libcrypto [$OSXALL]
 		$Libexternal $SRCDIR\thirdparty\libcryptopp [$OSXALL]
-		$Libexternal "$SRCDIR\thirdparty\$(CRYPTOPPDIR)\libcrypto" [$LINUXALL]
-		$Libexternal "$SRCDIR\thirdparty\$(CRYPTOPPDIR)\libcryptopp" [$LINUXALL]
+
+		// Linux port: the two LINUXALL $Libexternal entries that used to be
+		// here named prebuilts that do not exist in this tree:
+		//   $Libexternal "$SRCDIR\thirdparty\$(CRYPTOPPDIR)\libcryptopp" [$LINUXALL]
+		// CRYPTOPPDIR is defined by no script in the repository, so the path
+		// expanded to a literal "$(CRYPTOPPDIR)", the generator could not
+		// quote it, and the link silently vanished. common/crypto.cpp -- added
+		// by this same nameless $Project -- then referenced CryptoPP with
+		// nothing behind it and startup aborted with:
+		//   open libfilesystem_stdio.so failed: libfilesystem_stdio.so: undefined
+		//   symbol: _ZNK8CryptoPP21KeyDerivationFunction19MinDerivedKeyLengthEv
+		// thirdparty/cryptopp/cryptopp.vpc now builds the vendored sources
+		// (CRYPTOPP_VERSION 890) into the libcryptopp module this port needs.
+		$Lib cryptopp [$LINUXALL]
+
+		// No libcrypto on Linux: the only OpenSSL use in common/crypto.cpp is
+		// behind USE_OPENSSL_AES_DECRYPT, which is only defined by
+		// ENABLE_OPENSSLCONNECTION. Neither is set by any .vpc in this tree, so
+		// openssl/aes.h is never included and the AES paths below it do not
+		// compile. Everything resolves inside CryptoPP instead.
 	}
 
 	$Folder "Link Libraries" [$WINDOWS]

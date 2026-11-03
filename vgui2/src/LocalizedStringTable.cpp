@@ -481,7 +481,11 @@ bool CLocalizedStringTable::AddFile( const char *szFileName, const char *pPathID
 						bool bAccepted = true;
 						ucs2 conditional[ MAX_LOCALIZED_CHARS ];
 						ucs2 *tempData = ReadUnicodeToken(data, conditional, bQuoted);
-						const size_t conditional_length = wcslen(conditional);
+						// Port: conditional is ucs2 (16-bit); wchar_t is
+						// 32-bit here, so wcslen() does not apply.
+						size_t conditional_length = 0;
+						while ( conditional[conditional_length] )
+							++conditional_length;
 						// dimhotepus: Add $!<cond> support as required.
 						if ( !bQuoted &&
 							 conditional_length > 2 &&

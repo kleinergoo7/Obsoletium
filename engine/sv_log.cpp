@@ -18,7 +18,11 @@
 #include "GameEventManager.h"
 #include "netadr.h"
 #include "posix_file_stream.h"
+#ifdef _WIN32
 #include "zlib/zlib.h"
+#else
+#include <zlib.h>
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"

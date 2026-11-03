@@ -485,14 +485,17 @@ CpuCoreInfo GetProcessorCoresInfo( bool is_popcnt_supported )
 
 #endif
 
+}  // namespace
+
 #if defined(POSIX)
 // Move this declaration out of the QueryCurrentCpuFrequency() function because
 // otherwise clang warns that it is non-obvious whether it is a variable
 // or a function declaration: [-Wvexing-parse]
-uint64 CalculateCPUFreq(); // from cpu_linux.cpp
+//
+// It must also stay outside the anonymous namespace above, or it takes internal
+// linkage and stops matching the definition in cpu_posix.cpp.
+uint64 CalculateCPUFreq(); // from cpu_posix.cpp
 #endif
-
-}  // namespace
 
 int64 QueryCurrentCpuFrequency();
 

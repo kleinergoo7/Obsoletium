@@ -40,7 +40,22 @@ float FASTCALL R_WorldLightDistanceFalloff( const LightDesc_t *wl, const Vector&
 // Copies lighting state into a buffer, returns number of lights copied
 int CopyLocalLightingState( int nMaxLights, LightDesc_t *pDest, int nLightCount, const LightDesc_t *pSrc );
 
-#if defined( _WIN32 ) && !defined( _X360 )
+// The SSE/FourVectors lighting helpers are plain x86 SSE2 code, not Windows-only.
+// Both r_studiolight.h and studiorender.h used to gate them behind
+// "defined( _WIN32 ) && !defined( _X360 )" while r_studiolight.cpp and
+// r_studiodraw.cpp defined them unconditionally, so on Linux the definitions had
+// no declaration to match and studiorender did not build. One macro keeps the two
+// headers in step. 32-bit and non-SSE targets keep the old behaviour.
+#if !defined( STUDIO_SSE_LIGHTING )
+#if ( defined( _WIN32 ) && !defined( _X360 ) ) || \
+    ( defined( __x86_64__ ) && ( defined( _LINUX ) || defined( __linux__ ) ) )
+#define STUDIO_SSE_LIGHTING 1
+#else
+#define STUDIO_SSE_LIGHTING 0
+#endif
+#endif
+
+#if STUDIO_SSE_LIGHTING
 // SSE optimized versions
 void R_LightAmbient_4D( const FourVectors& normal, Vector4D* pLightBoxColor, FourVectors &lv );
 __m128 FASTCALL R_WorldLightDistanceFalloff( const LightDesc_t *wl, const FourVectors& delta );

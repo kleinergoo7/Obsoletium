@@ -58,7 +58,7 @@ class ScopedDll {
             std::system_category()}
 #else
       : dll_{::dlopen(dll_path, load_flags)},
-        rc_{dll_ ? 0 : EINVAL}
+        rc_{dll_ ? 0 : EINVAL, std::generic_category()}
 #endif
 #ifndef _WIN32
         ,
@@ -71,7 +71,7 @@ class ScopedDll {
   ScopedDll(ScopedDll &&d) noexcept : dll_{d.dll_} {
     d.dll_ = nullptr;
 #ifndef _WIN32
-    BitwiseClear(d.dll_path_);
+    d.dll_path_ = nullptr;
 #endif
   }
   ScopedDll &operator=(ScopedDll &) = delete;
@@ -93,8 +93,8 @@ class ScopedDll {
       if (::dlclose(dll_)) {
         fprintf(stderr, "Failed to close the %s: %s.\n", dll_path_,
                 ::dlerror());
-        // dimhotepus: 1 -> EOTHER.
-        exit(EOTHER); //-V2014
+        // POSIX has no EOTHER; EIO is the closest generic equivalent.
+        exit(EIO); //-V2014
       }
 #endif
     }

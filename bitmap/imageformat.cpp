@@ -265,8 +265,14 @@ int GetNumMipMapLevels( int width, int height, int depth )
 #endif	
 //-----------------------------------------------------------------------------
 // convert back and forth from D3D format to ImageFormat, regardless of
-// whether it's supported or not
+// whether it's supported or not.
+//
+// These four conversions are only reachable from the DirectX backends
+// (shaderapidx9 / shader_api_dx11), which are Windows-only. Excluding them on
+// other platforms keeps D3DFORMAT/DXGI_FORMAT/D3DFMT_*/MAKEFOURCC -- all of
+// which are DirectX SDK types -- out of this translation unit.
 //-----------------------------------------------------------------------------
+#ifdef _WIN32
 ImageFormat D3DFormatToImageFormat( D3DFORMAT format )
 {
 	switch ( format )
@@ -631,6 +637,7 @@ DXGI_FORMAT ImageFormatToDxgiFormat( ImageFormat format )
 		return DXGI_FORMAT_UNKNOWN;
 	}
 }
+#endif // _WIN32
 
 } // ImageLoader namespace ends
 

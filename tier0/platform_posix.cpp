@@ -607,18 +607,24 @@ PLATFORM_INTERFACE bool GetMemoryInformation( MemoryInformation *pOutMemoryInfo 
 
 	return true;
 #elif defined(LINUX)
+	// tier0 must not depend on the engine: declaring Sys_Error() here (it is
+	// defined in engine/sys_dll.cpp) left libtier0.so with an undefined
+	// reference to it, and the dedicated launcher dlopen()s libtier0.so with
+	// RTLD_NOW *before* libengine.so exists, so startup died with
+	// "libtier0.so: undefined symbol: Sys_Error". This query is best effort,
+	// so report failure instead of aborting.
 	const int fd = open("/proc/meminfo", O_RDONLY);
 	if (fd < 0)
 	{
-		Sys_Error( "Can't open /proc/meminfo (%s)!\n", strerror(errno) );
+		return false;
 	}
 
 	char buf[1024 * 16];
-	const ssize_t br = read(fd, buf, sizeof (buf));
+	const ssize_t br = read(fd, buf, sizeof (buf) - 1);
 	close(fd);
-	if (br < 0)
+	if (br <= 0)
 	{
-		Sys_Error( "Can't read /proc/meminfo (%s)!\n", strerror(errno) );
+		return false;
 	}
 	buf[br] = '\0';
 
@@ -638,8 +644,16 @@ PLATFORM_INTERFACE bool GetMemoryInformation( MemoryInformation *pOutMemoryInfo 
 				memsize = ((uint64_t) ull) * 1024;
 				break;
 			}
-			line = ptr;
+			// Advance to the start of the next line; pointing at ptr would
+			// land on the NUL we just wrote, so every later line would read
+			// as empty.
+			line = ptr + 1;
 		}
+	}
+
+	if (memsize == 0)
+	{
+		return false;
 	}
 
 	pOutMemoryInfo->m_nPhysicalRamMbTotal = memsize / cOneMib;
@@ -1156,4 +1170,15 @@ void DumpMemorySummary( )
 // Turn off memdbg macros (turned on up top) since this is included like a header
 #include "tier0/memdbgoff.h"
 
+// dimhotepus: Additional bug info.
+// The counterpart of Plat_IsUserAnAdmin() in tier0/platform.cpp, which tier0.vpc
+// compiles on [$WINDOWS] only, so the Linux build had no definition at all and
+// the loader failed on the first call with
+//   undefined symbol: Plat_IsUserAnAdmin
+bool Plat_IsUserAnAdmin() {
+  const uid_t uid{getuid()}, euid{geteuid()};
 
+  // We might have elevated privileges beyond that of the user who invoked the
+  // program, due to suid bit.
+  return uid < 0 || euid == 0 || uid != euid;
+}

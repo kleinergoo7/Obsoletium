@@ -66,7 +66,15 @@ void R_LightAmbient_4D( const Vector& normal, Vector4D* pLightBoxColor, Vector &
 	VectorMA( lv, normal[2]*normal[2], normal[2] > 0.f ? pLightBoxColor[4].AsVector3D() : pLightBoxColor[5].AsVector3D(), lv );
 }
 
-#if defined( _WIN32 ) && !defined( _X360 )
+// r_studiolight.h decides STUDIO_SSE_LIGHTING for x86-64 Linux as well as
+// Windows and declares the FourVectors overloads there, so gating the
+// definitions on _WIN32 left the library declaring R_LightAmbient_4D and
+// R_WorldLightDistanceFalloff without ever defining them. R_LightStrengthWorld
+// calls the latter with a lightpos_t::delta, which is a FourVectors under
+// STUDIO_SSE_LIGHTING, so libstudiorender.so kept an undefined
+// R_WorldLightDistanceFalloff(LightDesc_t const*, FourVectors const&) and its
+// dlopen failed. Gate on the same macro the header gates the declarations on.
+#if STUDIO_SSE_LIGHTING
 void R_LightAmbient_4D( const FourVectors& normal, Vector4D* pLightBoxColor, FourVectors &lv )
 {
 //	VPROF( "R_LightAmbient" );
@@ -382,7 +390,7 @@ float FASTCALL R_WorldLightDistanceFalloff( const LightDesc_t *wl, const Vector&
 	return R_WorldLightDistanceFalloffFunctionTable::functions[flags](wl, delta);
 }
 
-#if defined( _WIN32 ) && !defined( _X360 )
+#if STUDIO_SSE_LIGHTING
 fltx4 FASTCALL R_WorldLightDistanceFalloff( const LightDesc_t *wl, const FourVectors &delta )
 {
 	// !!speed!!: lights could store m_Attenuation2,m_Attenuation1, and m_Range^2 copies in replicated SSE format.

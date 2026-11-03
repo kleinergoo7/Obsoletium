@@ -296,7 +296,7 @@ unsigned char *ImgUtl_ReadVTFAsRGBA( const char *vtfPath, int &width, int &heigh
 }
 
 // read a TGA header from the current point in the file stream.
-static [[nodiscard]] bool ImgUtl_ReadTGAHeader(FILE *infile, TGAHeader &header)
+[[nodiscard]] static bool ImgUtl_ReadTGAHeader(FILE *infile, TGAHeader &header)
 {
 	if (infile == nullptr)
 	{
@@ -332,7 +332,7 @@ static [[nodiscard]] bool ImgUtl_ReadTGAHeader(FILE *infile, TGAHeader &header)
 }
 
 // write a TGA header to the current point in the file stream.
-static [[nodiscard]] bool WriteTGAHeader(FILE *outfile, TGAHeader &header)
+[[nodiscard]] static bool WriteTGAHeader(FILE *outfile, TGAHeader &header)
 {
 	if (outfile == nullptr)
 	{

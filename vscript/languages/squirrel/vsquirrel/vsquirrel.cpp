@@ -940,7 +940,8 @@ public:
 			sq_pushobject( m_hVM, *((HSQOBJECT *)hScope) );
 		}
 
-		intp nReturnValue;
+		// sq_getinteger() writes an SQInteger (long long on LP64), not an intp.
+		SQInteger nReturnValue;
 
 		sq_pushinteger(m_hVM, nIterator);
 
@@ -1439,7 +1440,12 @@ private:
 					}
 					// dimhotepus: Add missed break.
 					break;
-				case FIELD_INTEGER:		params[i] = sa.GetInt( i + 2 ); break;
+				// SQInteger is long long here, and CVariantBase::operator= overloads
+				// on int / uint / int64 / uint64 / float / float64, none of which is
+				// an exact match (int64 is int64_t, i.e. long). That makes the call
+				// ambiguous. Cast to int, which is both what FIELD_INTEGER stores and
+				// what SQInteger used to be on the 32-bit build this code came from.
+				case FIELD_INTEGER:		params[i] = static_cast<int>( sa.GetInt( i + 2 ) ); break;
 				case FIELD_BOOLEAN:		params[i] = sa.GetBool( i + 2 ); break;
 				case FIELD_CHARACTER:	params[i] = sa.GetString( i + 2 )[0]; break;
 				case FIELD_HSCRIPT:
@@ -1525,7 +1531,9 @@ private:
 					sq_remove( hVM, -2 );
 					break;
 				}
-			case FIELD_INTEGER:		sa.Return( (SQ_INT)returnValue ); break;
+			// Same CVariantBase conversion-operator ambiguity as above; operator int()
+			// is the conversion the 32-bit build used.
+			case FIELD_INTEGER:		sa.Return( static_cast<SQ_INT>( static_cast<int>( returnValue ) ) ); break;
 			case FIELD_BOOLEAN:		sa.Return( (bool)returnValue ); break;
 			case FIELD_CHARACTER:	Assert( 0 ); sq_pushnull( hVM ); break;
 			case FIELD_HSCRIPT:
@@ -1800,7 +1808,9 @@ private:
 		switch ( object._type )
 		{
 		case OT_NULL:		pReturn->m_type = FIELD_VOID; break;
-		case OT_INTEGER:	*pReturn = object._unVal.nInteger; break;
+		// SQInteger (long long) does not exactly match any CVariantBase::operator=
+		// overload on LP64; int is the FIELD_INTEGER payload and the 32-bit type.
+		case OT_INTEGER:	*pReturn = static_cast<int>( object._unVal.nInteger ); break;
 		case OT_FLOAT:		*pReturn = object._unVal.fFloat; break;
 		case OT_BOOL:		*pReturn = (object._unVal.nInteger != 0); break;
 		case OT_STRING:		

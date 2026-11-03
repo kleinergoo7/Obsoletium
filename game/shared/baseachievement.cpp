@@ -516,7 +516,14 @@ void CBaseAchievement::SetComponentBits( uint64 iComponentBits )
 
 	// dimhotepus: Use CPU instruction on x64 / ARM64.
 #if (defined(PLATFORM_INTEL) && (PLATFORM_X86 == 64)) || defined(PLATFORM_ARM_64)
+#if defined(GNUC)
+	// __popcnt64 is MSVC's spelling; GCC exposes the same POPCNT instruction
+	// through __builtin_popcountll, and __popcnt64 is not declared here.
+	m_iCount = size_cast<int>( __builtin_popcountll(
+		static_cast<unsigned long long>( iComponentBits ) ) );
+#else
 	m_iCount = size_cast<int>( __popcnt64(iComponentBits) );
+#endif
 #else
 	// count how many bits are set and save that as the count
 	int iNumBitsSet = 0;

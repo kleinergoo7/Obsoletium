@@ -89,6 +89,22 @@ using ULONGLONG = unsigned long long; //-V677
 
 #ifdef POSIX
 typedef DWORD COLORREF;
+
+// Win32 handle spellings used by the Xbox Live session code in engine/ (see
+// Session.cpp, matchmakinghost.cpp). platform.h already supplies HANDLE and
+// DWORD for POSIX, but the invalid-handle sentinel and CloseHandle() have no
+// equivalent. The Xbox session API is inert on this platform, so treat an
+// invalid handle as nullptr and closing a stub handle as a successful no-op.
+// This matches the rest of CSession, which already uses nullptr for
+// m_hCreateHandle.
+#ifndef INVALID_HANDLE_VALUE
+#define INVALID_HANDLE_VALUE nullptr
+#endif
+
+static inline int CloseHandle( HANDLE )
+{
+	return 1;
+}
 #endif
 
 // typedef struct {
@@ -102,11 +118,18 @@ typedef DWORD COLORREF;
 using XNADDR = int;
 using XUID = uint64;
 
-using XNKID = struct {
+// These need a struct tag. As anonymous structs they have no linkage, so any
+// function returning one (CSession::GetSessionId, CMatchmaking::JoinInviteSessionByID,
+// ...) fails to compile with "used but never defined" even though its
+// definition is present. Match the tagged style used below for
+// _XSESSION_INFO / _XUSER_DATA.
+using XNKID = struct _XNKID
+{
 	BYTE        ab[8];                          // xbox to xbox key identifier
 };
 
-using XNKEY = struct {
+using XNKEY = struct _XNKEY
+{
 	BYTE        ab[16];                         // xbox to xbox key exchange key
 };
 

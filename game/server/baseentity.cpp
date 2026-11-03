@@ -5544,7 +5544,11 @@ public:
 			Q_strncpy( buf, name, sizeof( buf ) );
 			Q_strlower( buf );
 
-			CUtlString command = CFmtStr( "%s %s", cmdname, buf );
+			// Direct-initialisation, not copy-initialisation: CFmtStr only reaches
+			// CUtlString through its operator const char *, and copy-initialisation
+			// allows just one user-defined conversion, so GCC rejected "=" here
+			// where MSVC accepted it.
+			CUtlString command( CFmtStr( "%s %s", cmdname, buf ) );
 			commands.AddToTail( command );
 		}
 
@@ -5638,7 +5642,7 @@ private:
 			V_strcpy_safe( buf, name );
 			Q_strlower( buf );
 
-			CUtlString command = CFmtStr( "%s %s %s", cmdname, targetEntity, buf );
+			CUtlString command( CFmtStr( "%s %s %s", cmdname, targetEntity, buf ) );
 			commands.AddToTail( command );
 		}
 

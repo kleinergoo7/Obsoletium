@@ -185,8 +185,10 @@ void CCSClientGameStats::RetrieveSteamStats()
 //-----------------------------------------------------------------------------
 void CCSClientGameStats::UpdateSteamStats()
 {
-	// only upload if Steam is running
-	if ( !steamapicontext->SteamUserStats() )
+	// only upload if Steam is running. Port-owned: this build has no Steam
+	// client, so the context pointer itself is null - checking only the
+	// returned interface dereferenced it.
+	if ( !steamapicontext || !steamapicontext->SteamUserStats() )
 		return; 
 
 	CAchievementMgr *pAchievementMgr = dynamic_cast<CAchievementMgr *>( engine->GetAchievementMgr() );

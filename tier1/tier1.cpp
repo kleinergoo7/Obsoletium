@@ -9,6 +9,15 @@
 #include "tier0/dbg.h"
 #include "vstdlib/iprocessutils.h"
 #include "icvar.h"
+#include "filesystem.h"
+
+// Defined here rather than in tier2/tier2.cpp: the datamodel and dmserializers
+// modules read this global, and tier2 reads g_pDmSerializers from
+// dmserializers, so a definition in tier2 formed a cycle of eagerly-bound
+// data symbols (tier2 -> dmserializers -> datamodel -> tier2) that no dlopen
+// order could satisfy. It is a settable handle, not tier2 code, so placing it
+// one tier down costs nothing and keeps the dependency graph acyclic.
+IFileSystem *g_pFullFileSystem = nullptr;
 
 
 //-----------------------------------------------------------------------------

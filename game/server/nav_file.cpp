@@ -1403,7 +1403,11 @@ NavErrorType CNavMesh::GetNavDataFromFile( CUtlBuffer &outBuffer, bool *pNavData
 		{
 			int originalSize = CLZMA::GetActualSize( (unsigned char *)outBuffer.Base() );
 			unsigned char *pOriginalData = new unsigned char[originalSize];
-			CLZMA::Uncompress( (unsigned char *)outBuffer.Base(), pOriginalData );
+			// Uncompress takes the output capacity as its third argument
+			// (OUT_BYTECAP in lzmaDecoder.h), which the two-argument call here
+			// never passed; every other caller, packfile.cpp:243 among them,
+			// supplies it. originalSize is exactly that capacity.
+			CLZMA::Uncompress( (unsigned char *)outBuffer.Base(), pOriginalData, originalSize );
 			outBuffer.AssumeMemory( pOriginalData, originalSize, originalSize, CUtlBuffer::READ_ONLY );
 		}
 	}

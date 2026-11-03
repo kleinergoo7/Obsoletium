@@ -82,10 +82,22 @@ public:
 };
 
 
+class CDrawTreeFrame;
+extern CDrawTreeFrame *g_pDrawTreeFrame;
+
 class CDrawTreeFrame : public vgui::Frame
 {
 public:
 	DECLARE_CLASS_SIMPLE_OVERRIDE( CDrawTreeFrame, vgui::Frame );
+
+	// Port-owned: any deletion path (parent cascade, vgui teardown, not
+	// just VGui_DestroyDrawTreePanel) must clear the global; Shutdown's
+	// HideGameUI touches it and crashed on the dangling pointer.
+	~CDrawTreeFrame() override
+	{
+		if ( g_pDrawTreeFrame == this )
+			g_pDrawTreeFrame = nullptr;
+	}
 	
 	CDrawTreeFrame( vgui::Panel *parent, const char *pName ) : 
 		BaseClass( parent, pName )
@@ -583,7 +595,10 @@ void VGui_DestroyDrawTreePanel()
 
 void VGui_MoveDrawTreePanelToFront()
 {
-	if ( g_pDrawTreeFrame )
+	// Port-owned: vgui::ipanel() is a tier3 interface that is already
+	// disconnected (null) this late in shutdown; HideGameUI runs after it.
+	// Panel::MoveToFront would crash on the null interface.
+	if ( g_pDrawTreeFrame && vgui::ipanel() )
 		g_pDrawTreeFrame->MoveToFront();
 }
 

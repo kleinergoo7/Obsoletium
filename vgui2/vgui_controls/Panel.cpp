@@ -5628,7 +5628,10 @@ void Panel::OnDelete()
 //-----------------------------------------------------------------------------
 Panel *PHandle::Get() const
 {
-	if (m_iPanelID != INVALID_PANEL)
+	// Port-owned: during late shutdown the vgui tier3 interfaces are
+	// disconnected (null) before all teardown finishes; every panel is
+	// effectively gone, so honor the NULL contract instead of crashing.
+	if (m_iPanelID != INVALID_PANEL && ivgui() && ipanel())
 	{
 		VPANEL panel = ivgui()->HandleToPanel(m_iPanelID);
 		if (panel)

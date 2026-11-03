@@ -297,7 +297,16 @@ CUtlFilenameSymbolTable::CUtlFilenameSymbolTable()
 
 CUtlFilenameSymbolTable::~CUtlFilenameSymbolTable()
 {
+	// Clear the pointer after releasing it. The owning CBaseFileSystem is a
+	// namespace-scope global (filesystem/filesystem_stdio.cpp), and valgrind
+	// showed this destructor running twice for the same object during process
+	// teardown, so the second delete hit an already-freed chunk and aborted the
+	// server on exit with "free(): double free detected in tcache 2". The
+	// library is only initialised once, so the repeat comes from the teardown
+	// path rather than a second static initialisation; nulling the pointer makes
+	// the repeat harmless rather than fatal.
 	delete m_Strings;
+	m_Strings = nullptr;
 }
 
 

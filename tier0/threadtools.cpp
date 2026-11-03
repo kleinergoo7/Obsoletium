@@ -425,16 +425,30 @@ void ThreadSetDebugName( ThreadId_t id, const char *pszName )
 	}
 #elif defined( _LINUX )
 	// As of glibc v2.12, we can use pthread_setname_np.
+	//
+	// Only the calling thread may be named here. ThreadId_t is 32-bit (Valve
+	// leaves the 64-bit case commented out above) while CThread::m_threadId is a
+	// 64-bit pthread_t on LP64, so CThread::Start() -- which runs on the *parent*
+	// and passes the child's id -- truncated the handle, and glibc dereferenced
+	// the result:
+	//     #0 pthread_setname_np@GLIBC_2.12
+	//     #1 ThreadSetDebugName (id=4135581376, pszName=0x491254 "IOJob0")
+	//     #2 CThread::Start
+	//     #4 CBaseFileSystem::InitAsync
+	// Naming a foreign thread is racy anyway, since it may not be scheduled yet.
+	// The thread names itself from its entry point instead, which calls
+	// ThreadSetDebugName( "MainThrd" ) through the INVALID_THREAD_ID overload;
+	// this is the same rule the OSX branch below already applies.
 	if ( id == INVALID_THREAD_ID )
-		id = pthread_self();
+	{
+		// The thread name is a meaningful C language string, whose length is
+		// restricted to 16 characters, including the terminating null byte ('\0').
+		char szThreadName[ 16 ];
+		strncpy( szThreadName, pszName, std::size( szThreadName ) );
+		szThreadName[ std::size( szThreadName ) - 1 ] = 0;
 
-	// The thread name is a meaningful C language string, whose length is
-	// restricted to 16 characters, including the terminating null byte ('\0').
-	char szThreadName[ 16 ];
-	strncpy( szThreadName, pszName, std::size( szThreadName ) );
-	szThreadName[ std::size( szThreadName ) - 1 ] = 0;
-
-	pthread_setname_np( id, szThreadName );
+		pthread_setname_np( pthread_self(), szThreadName );
+	}
 #elif defined( OSX )
 	// dimhotepus: MacOS only supports set name for current thread.
 	if ( id == ThreadGetCurrentId() || id == INVALID_THREAD_ID )

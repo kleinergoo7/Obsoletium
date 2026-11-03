@@ -1117,7 +1117,12 @@ void CNavMesh::LoadPlaceDatabase( void )
 	populationData->deleteThis();
 #endif
 
-	CUtlBuffer buf( 0, 0, CUtlBuffer::TEXT_BUFFER );
+	// CUtlBuffer has both CUtlBuffer( intp, intp, int ) and
+	// CUtlBuffer( const void *, intp, int ). A literal 0 is valid as an intp and
+	// as a null pointer constant, so both overloads match and GCC reports the
+	// call as ambiguous; MSVC just prefers the first. Naming intp explicitly
+	// removes the pointer conversion and selects the intended constructor.
+	CUtlBuffer buf( (intp)0, (intp)0, CUtlBuffer::TEXT_BUFFER );
 	filesystem->ReadFile("NavPlace.db", "GAME", buf);
 
 	if (!buf.Size())

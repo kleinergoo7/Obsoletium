@@ -872,7 +872,7 @@ public:
 	virtual void SetupLighting( const Vector &vecCenter );
 	virtual void SuppressEngineLighting( bool bSuppress );
 
-	inline vertexFileHeader_t *CacheVertexData() { return g_pMDLCache->GetVertexData( VoidPtrToMDLHandle( m_pStudioHdr->VirtualModel() ) ); }
+	inline vertexFileHeader_t *CacheVertexData() { if ( !m_pStudioHdr ) return NULL; return g_pMDLCache->GetVertexData( VoidPtrToMDLHandle( m_pStudioHdr->VirtualModel() ) ); }
 
 	bool Init();
 	void Shutdown();

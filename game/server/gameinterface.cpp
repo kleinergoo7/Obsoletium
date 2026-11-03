@@ -805,12 +805,11 @@ void CServerGameDLL::DLLShutdown( void )
 	s_SteamGameServerAPIContext.Clear();
 #endif	
 
-	gameeventmanager = NULL;
-	
-	DisconnectTier3Libraries();
-	DisconnectTier2Libraries();
-	ConVar_Unregister();
-	DisconnectTier1Libraries();
+	// Port-owned: see cdll_client_int.cpp — the tier1/2/3 globals are
+	// process-wide singletons on Linux; nulling them here would vandalize
+	// every module that outlives the server DLL. They stay valid until
+	// launcher PostShutdown at process exit.
+	// (gameeventmanager used to be nulled here too; same reason.)
 }
 
 bool CServerGameDLL::ReplayInit( CreateInterfaceFn fnReplayFactory )

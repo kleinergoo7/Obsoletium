@@ -29,7 +29,13 @@ $Configuration	"Debug"
 	$Compiler
 	{
 		$PreprocessorDefinitions		"$BASE;VSCRIPT_DLL_EXPORT" 
-		$PreprocessorDefinitions		"$BASE;LUA_BUILD_AS_DLL=1;LUA_MOD_CASE_INSENSITIVE" 
+		$PreprocessorDefinitions		"$BASE;LUA_MOD_CASE_INSENSITIVE" 
+		// LUA_BUILD_AS_DLL only selects __declspec(dllexport/dllimport) for
+		// LUA_API in luaconf.h. On GCC there is no __declspec, and the compat
+		// shim expands it to nothing, which turns every "LUA_API lua_State *
+		// (lua_newstate)(...)" declaration into a function-style cast and fails
+		// with "expected constructor, destructor, or type conversion".
+		$PreprocessorDefinitions		"LUA_BUILD_AS_DLL=1" [$WINDOWS]
 		$AdditionalIncludeDirectories	"$BASE;$LUASRCDIR"
 		$AdditionalIncludeDirectories	"$BASE;$SQUIRRELSRCDIR;.\languages\squirrel\include;.\languages\squirrel\sqplus"
 
@@ -68,7 +74,13 @@ $Configuration	"Release"
 	$Compiler
 	{
 		$PreprocessorDefinitions		"$BASE;VSCRIPT_DLL_EXPORT" 
-		$PreprocessorDefinitions		"$BASE;LUA_BUILD_AS_DLL=1;LUA_MOD_CASE_INSENSITIVE" 
+		$PreprocessorDefinitions		"$BASE;LUA_MOD_CASE_INSENSITIVE" 
+		// LUA_BUILD_AS_DLL only selects __declspec(dllexport/dllimport) for
+		// LUA_API in luaconf.h. On GCC there is no __declspec, and the compat
+		// shim expands it to nothing, which turns every "LUA_API lua_State *
+		// (lua_newstate)(...)" declaration into a function-style cast and fails
+		// with "expected constructor, destructor, or type conversion".
+		$PreprocessorDefinitions		"LUA_BUILD_AS_DLL=1" [$WINDOWS]
 		$AdditionalIncludeDirectories	"$BASE;$LUASRCDIR"
 		$AdditionalIncludeDirectories	"$BASE;$SQUIRRELSRCDIR;.\languages\squirrel\include;.\languages\squirrel\sqplus"
 
@@ -177,6 +189,84 @@ $Project "vscript"
 			$File 	".\languages\squirrel\include\sqrdbg.h"
 		}
 		
+		$Folder "lua core"
+		{
+			// Same story as the squirrel core below: upstream links a prebuilt
+			// lua_shared.lib that does not exist here, so vlua.cpp had a lua_State
+			// with no interpreter behind it and libvscript.so referenced
+			// lua_pushstring() with nothing defining it. The vendored 5.4.7 sources
+			// go straight into the module (lua.c and luac.c are the interpreter
+			// and the compiler front end, and are left out).
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lapi.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lauxlib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lbaselib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lcode.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lcorolib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lctype.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\ldblib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\ldebug.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\ldo.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\ldump.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lfunc.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lgc.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\linit.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\liolib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\llex.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lmathlib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lmem.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\loadlib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lobject.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lopcodes.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\loslib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lparser.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lstate.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lstring.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lstrlib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\ltable.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\ltablib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\ltm.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lundump.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lutf8lib.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lvm.c"
+				$File	"$SRCDIR\\thirdparty\\lua\\lua-5.4.7\\src\\lzio.c"
+		}
+
+		$Folder "squirrel core"
+		{
+			// Upstream's Windows build links prebuilt squirrel3.lib / sqstdlib3.lib
+			// (see $AdditionalDependencies above), which do not exist for a Linux
+			// port, so the VM and its standard library were missing entirely.
+			// vsquirrel.cpp only carries the sqplus bindings, and without the core
+			// libvscript.so referenced SQRefCounted's typeinfo with nothing defining
+			// it:
+			//   undefined symbol: typeinfo for SQRefCounted (fatal)
+			// Compiling the vendored sources straight into the module keeps the
+			// single shared object the module list expects.
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqapi.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqbaselib.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqclass.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqcompiler.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqdebug.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqfuncstate.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqlexer.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqmem.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqobject.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqstate.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqtable.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\squirrel\\sqvm.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\sqstdlib\\sqstdaux.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\sqstdlib\\sqstdblob.cpp"
+				// sqstdio.cpp is deliberately absent: vsquirrel.cpp carries its own
+				// sqstd_loadfile and sqstd_register_iolib, and compiling both
+				// into the module made ld report "multiple definition of
+				// `sqstd_loadfile'.
+				$File	"$SRCDIR\\thirdparty\\squirrel\\sqstdlib\\sqstdmath.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\sqstdlib\\sqstdrex.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\sqstdlib\\sqstdstream.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\sqstdlib\\sqstdstring.cpp"
+				$File	"$SRCDIR\\thirdparty\\squirrel\\sqstdlib\\sqstdsystem.cpp"
+		}
+
 		$Folder "squirrel"
 		{
 			$Folder	"Source Files"

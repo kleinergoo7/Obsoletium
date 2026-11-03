@@ -13,7 +13,7 @@
 #endif
 
 #if defined( USE_SDL )
-#include "include/SDL3/SDL.h"
+#include <SDL3/SDL.h>
 #endif
 
 #include "quakedef.h"
@@ -123,7 +123,13 @@ bool				g_bV3SteamInterface = false;
 CreateInterfaceFn	g_AppSystemFactory = NULL;
 
 static bool			s_bIsDedicated = false;
-ConVar *sv_noclipduringpause = NULL;
+// Non-exported, non-colliding name: libserver (and libclient) each export their own
+// `ConVar sv_noclipduringpause`. On Linux the same symbol must not be defined in two
+// modules with different layouts, or symbol interposition binds the game-side
+// registration to THIS 8-byte pointer global, which then gets treated as a
+// ConCommandBase and breaks cvar hash/list walks (boot SIGSEGV in
+// ConVar::GetName / CConCommandHash::Find / BuildCommentExtended).
+ConVar *s_pNoclipDuringPause = NULL;
 
 // Special mode where the client uses a console window and has no graphics. Useful for stress-testing a server
 // without having to round up 32 people.
@@ -343,6 +349,18 @@ void Sys_Printf(const char *fmt, ...)
 
 bool Sys_MessageBox(const char *title, const char *info, bool bShowOkAndCancel, bool bError)
 {
+#if defined(POSIX) && defined(USE_SDL)
+	// Headless dedicated server: never pop SDL/GUI dialogs, they block boot
+	// (e.g. "Unable to load manifest file 'scripts/surfaceproperties_manifest.txt'"
+	// waited on a zenity fork). Log the message instead and act as if the user
+	// pressed "OK" unless SOURCE_ASSERT_DIALOG is set for interactive debugging.
+	if ( !getenv( "SOURCE_ASSERT_DIALOG" ) )
+	{
+		Warning( "%s\n", info );
+		return true;
+	}
+#endif
+
 #ifdef _WIN32
 
 	wchar_t wideTitle[512];
@@ -1133,7 +1151,7 @@ void LoadEntityDLLs( const char *szBaseDir, bool bIsServerOnly )
 
 	// Run through all DLLs found in the extension DLL directory
 	g_GameDLL = NULL;
-	sv_noclipduringpause = NULL;
+	s_pNoclipDuringPause = NULL;
 
 	{
 		// Listing file for this game.
@@ -1423,7 +1441,7 @@ void UnloadEntityDLLs( void )
 	serverGameDLL = NULL;
 	serverGameEnts = NULL;
 	serverGameClients = NULL;
-	sv_noclipduringpause = NULL;
+	s_pNoclipDuringPause = NULL;
 }
 
 

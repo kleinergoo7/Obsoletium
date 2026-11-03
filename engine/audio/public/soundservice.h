@@ -19,6 +19,7 @@ struct SpatializationInfo_t;
 typedef void *FileNameHandle_t;
 struct StartSoundParams_t;
 
+#include "soundflags.h" // SoundSource; the comment below still says iclientsound.h
 #include "tier1/utlrbtree.h"
 
 //-----------------------------------------------------------------------------

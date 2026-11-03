@@ -25,6 +25,11 @@ $Project "choreoobjects"
 		$File	"$SRCDIR\game\shared\choreoevent.cpp"
 		$File	"$SRCDIR\game\shared\choreoscene.cpp"
 		$File	"$SRCDIR\game\shared\sceneimage.cpp"
+		// Linux port: choreoevent.cpp calls Interpolator_CurveInterpolators*
+		// from public/interpolatortypes.cpp. Game DLLs compile that TU
+		// themselves, but shared libchoreoobjects.so must be self-sufficient
+		// under RTLD_NOW (launcher.so reaches it before client/server map).
+		$File	"$SRCDIR\public\interpolatortypes.cpp" [$LINUXALL]
 	}
 
 	$Folder	"Header Files"
@@ -42,5 +47,23 @@ $Project "choreoobjects"
 		$File	"$SRCDIR\public\mathlib\mathlib.h"
 		$File	"$SRCDIR\public\mathlib\vector.h"
 		$File	"$SRCDIR\public\mathlib\vector2d.h"
+	}
+
+	// Linux port: sceneimage.cpp (added above) wraps the free tokenizer from
+	// utils/common/scriplib.cpp (scriptlib, TokenAvailable, ParseFromMemory,
+	// GetToken) and calls LZMA_OpportunisticCompress from utils/lzma/lzma.cpp.
+	// Upstream leaves those undefined here and lets the host process provide
+	// them from its own global symbols; the dedicated server has no such host,
+	// so dlopen of libserver_CStrike.so failed with:
+	//   libserver_CStrike.so: undefined symbol: scriptlib
+	//   libserver_CStrike.so: undefined symbol: TokenAvailable
+	//   libserver_CStrike.so: undefined symbol: ParseFromMemory
+	//   libserver_CStrike.so: undefined symbol: GetToken
+	//   libserver_CStrike.so: undefined symbol: LZMA_OpportunisticCompress
+	// These two modules make the imports real DT_NEEDED edges.
+	$Folder "Link Libraries" [$LINUXALL]
+	{
+		$Lib scriplib
+		$Lib lzma
 	}
 }

@@ -58,7 +58,7 @@ int CUserMessages::GetUserMessageSize( int index )
 {
 	if ( index < 0 || index >= m_UserMessages.Count() )
 	{
-		Error( __FUNCTION__ ": index %i out of range!!!\n", index );
+		Error( "%s: index %i out of range!!!\n", __FUNCTION__, index );
 	}
 
 	CUserMessage *e = m_UserMessages[ index ];
@@ -74,7 +74,7 @@ const char *CUserMessages::GetUserMessageName( int index )
 {
 	if ( index < 0 || index >= m_UserMessages.Count() )
 	{
-		Error( __FUNCTION__ ": index %i out of range!!!\n", index );
+		Error( "%s: index %i out of range!!!\n", __FUNCTION__, index );
 	}
 
 	return m_UserMessages.GetElementName( index );
@@ -101,7 +101,19 @@ void CUserMessages::Register( const char *name, int size )
 	const int idx{m_UserMessages.Find( name )};
 	if ( idx != m_UserMessages.InvalidIndex() )
 	{
-		Error( __FUNCTION__ ": message '%s' already registered.\n", name );
+		// Port-owned: on Linux the game DLLs load with RTLD_GLOBAL, so the
+		// shared RegisterUserMessages()/usermessages symbols interpose
+		// across client/server (Windows DLLs have isolated namespaces).
+		// The second registration is identical and harmless; keep Error
+		// only for genuine conflicts (same name, different size).
+		if ( m_UserMessages[ idx ]->size == size )
+		{
+			DevWarning( "%s: message '%s' already registered (identical, skipping).\n",
+						__FUNCTION__, name );
+			return;
+		}
+		Error( "%s: message '%s' already registered with different size.\n",
+			   __FUNCTION__, name );
 	}
 
 	auto *entry = new CUserMessage{size, name, CUtlVector<pfnUserMsgHook>{}};
@@ -122,7 +134,7 @@ void CUserMessages::HookMessage( const char *name, pfnUserMsgHook hook )
 	const int idx{m_UserMessages.Find( name )};
 	if ( idx == m_UserMessages.InvalidIndex() )
 	{
-		DevMsg( __FUNCTION__ ": no such message %s.\n", name );
+		DevMsg( "%s: no such message %s.\n", __FUNCTION__, name );
 		AssertMsg( false, "Message %s not found.", name );
 		return;
 	}
@@ -131,7 +143,7 @@ void CUserMessages::HookMessage( const char *name, pfnUserMsgHook hook )
 	m_UserMessages[ idx ]->clienthooks[i] = hook;
 
 #else
-	Error( __FUNCTION__ ": called from server code!!!\n" );
+	Error( "%s: called from server code!!!\n", __FUNCTION__ );
 #endif
 }
 
@@ -147,7 +159,7 @@ bool CUserMessages::DispatchUserMessage( int msg_type, bf_read &msg_data )
 #if defined( CLIENT_DLL )
 	if ( msg_type < 0 || msg_type >= m_UserMessages.Count() )
 	{
-		DevWarning( __FUNCTION__ ": bogus msg type %i (max == %d).\n", msg_type, m_UserMessages.Count() );
+		DevWarning( "%s: bogus msg type %i (max == %d).\n", __FUNCTION__, msg_type, m_UserMessages.Count() );
 		Assert( 0 );
 		return false;
 	}
@@ -156,14 +168,14 @@ bool CUserMessages::DispatchUserMessage( int msg_type, bf_read &msg_data )
 
 	if ( !entry )
 	{
-		DevWarning( __FUNCTION__ ": missing client entry for msg type %i.\n", msg_type );
+		DevWarning( "%s: missing client entry for msg type %i.\n", __FUNCTION__, msg_type );
 		Assert( 0 );
 		return false;
 	}
 
 	if ( entry->clienthooks.Count() == 0 )
 	{
-		DevWarning( __FUNCTION__ ": missing client hook for %s.\n", GetUserMessageName(msg_type) );
+		DevWarning( "%s: missing client hook for %s.\n", __FUNCTION__, GetUserMessageName(msg_type) );
 		Assert( 0 );
 		return false;
 	}
@@ -177,7 +189,7 @@ bool CUserMessages::DispatchUserMessage( int msg_type, bf_read &msg_data )
 
 	return true;
 #else
-	Error( __FUNCTION__ ": called from server code!!!\n" );
+	Error( "%s: called from server code!!!\n", __FUNCTION__ );
 	return false;
 #endif
 }
@@ -197,7 +209,7 @@ void CUserMessages::UnhookMessage( const char *name, pfnUserMsgHook hook )
 	int idx = m_UserMessages.Find( name );
 	if ( idx == m_UserMessages.InvalidIndex() )
 	{
-		DevMsg( __FUNCTION__ ": no such message %s.\n", name );
+		DevMsg( "%s: no such message %s.\n", __FUNCTION__, name );
 		AssertMsg( false, "Message %s not found.", name );
 		return;
 	}
@@ -205,13 +217,13 @@ void CUserMessages::UnhookMessage( const char *name, pfnUserMsgHook hook )
 	const bool ok = m_UserMessages[ idx ]->clienthooks.FindAndFastRemove( hook );
 	if ( !ok )
 	{
-		DevWarning( __FUNCTION__ ": message %s hook 0x%p not found.", name, hook );
+		DevWarning( "%s: message %s hook 0x%p not found.", __FUNCTION__, name, hook );
 		AssertMsg( false, "Message %s hook 0x%p not found.", name, hook );
 		return;
 	}
 
 #else
-	Error( __FUNCTION__ ": called from server code!!!\n" );
+	Error( "%s: called from server code!!!\n", __FUNCTION__ );
 #endif
 }
 

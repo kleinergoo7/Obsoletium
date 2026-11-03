@@ -927,12 +927,20 @@ void CScheme::ReloadFontGlyphs()
 				tall = minimumFontHeight;
 			}
 			
+			// A font block may carry no "name" at all: the CS:S scheme names
+			// some of them per platform, and sourceschemebase.res names
+			// Arial/Verdana only off-POSIX. Fall back to the family the
+			// scheme uses everywhere else. (The parent key is the font
+			// alias, not a font, so it is not a source for the family.)
+			const char *fontname = fontdata->GetString( "name", "" );
+			if ( !*fontname )
+				fontname = "Verdana";
 			if ( flags & ISurface::FONTFLAG_BITMAP )
 			{
 				// add the new set
 				g_pSurface->SetBitmapFontGlyphSet(
 					m_FontAliases[i]._font,
-					g_pSurface->GetBitmapFontName( fontdata->GetString( "name" ) ), 
+					g_pSurface->GetBitmapFontName( fontname ),
 					scalex,
 					scaley,
 					flags);
@@ -941,28 +949,28 @@ void CScheme::ReloadFontGlyphs()
 			{
 				int nRangeMin, nRangeMax;
 
-				if ( GetFontRange( fontdata->GetString( "name" ), nRangeMin, nRangeMax ) )
+				if ( GetFontRange( fontname, nRangeMin, nRangeMax ) )
 				{
 					// add the new set
 					g_pSurface->SetFontGlyphSet(
 						m_FontAliases[i]._font,
-						fontdata->GetString( "name" ), 
-						tall, 
-						fontdata->GetInt( "weight" ), 
+						fontname,
+						tall,
+						fontdata->GetInt( "weight" ),
 						blur,
 						scanlines,
 						flags,
 						nRangeMin,
-						nRangeMax);					
+						nRangeMax);
 				}
 				else
 				{
 					// add the new set
 					g_pSurface->SetFontGlyphSet(
 						m_FontAliases[i]._font,
-						fontdata->GetString( "name" ), 
-						tall, 
-						fontdata->GetInt( "weight" ), 
+						fontname,
+						tall,
+						fontdata->GetInt( "weight" ),
 						blur,
 						scanlines,
 						flags);

@@ -18,7 +18,7 @@
 
 #if defined( USE_SDL )
 #undef M_PI
-#include "include/SDL3/SDL.h"
+#include <SDL3/SDL.h>
 static void initKeymap(void);
 #endif
 
@@ -595,7 +595,7 @@ void CInputSystem::PollInputState_Windows()
 
 #if defined( USE_SDL )
 
-static BYTE        scantokey[SDL_NUM_SCANCODES];
+static BYTE        scantokey[SDL_SCANCODE_COUNT];
 
 static void initKeymap(void)
 {

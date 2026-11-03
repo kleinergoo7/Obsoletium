@@ -341,6 +341,7 @@ void CConsolePanel::Clear()
 {
 	m_pHistory->SetText("");
 	m_pHistory->GotoTextEnd();
+	m_nHistoryBytes = 0;
 }
 
 
@@ -352,6 +353,19 @@ void CConsolePanel::ColorPrint( const Color& clr, const char *msg )
 	if ( m_bStatusVersion )
 	{
 		Clear();
+	}
+
+	// Port-owned: every spew line (including assert floods) lands here
+	// char-by-char even while hidden; an unbounded history makes layout
+	// O(n^2) and starves presents. Cap it; scrollback loss happens only
+	// under floods.
+	if ( msg )
+	{
+		m_nHistoryBytes += (intp)strlen( msg );
+		if ( m_nHistoryBytes > 262144 )
+		{
+			Clear();
+		}
 	}
 
 	m_pHistory->InsertColorChange( clr );

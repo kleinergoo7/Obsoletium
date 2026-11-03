@@ -17,6 +17,21 @@ $Project "tier3"
 		$File	"choreoutils.cpp"
 		$File	"scenetokenprocessor.cpp"
 		$File	"studiohdrstub.cpp"
+		// Linux port: mdlutils.cpp calls IBoneSetup::AccumulatePose from
+		// public/bone_setup.cpp. On Windows tier3 links static and the game
+		// DLLs resolve it from their own bone_setup.obj at final link; our
+		// shared libtier3.so must be self-sufficient under RTLD_NOW instead
+		// (launcher.so reaches tier3 before client/server are mapped, so no
+		// host can provide it). Guarded [$LINUXALL]: Windows/MSVC builds are
+		// unaffected.
+		$File	"$SRCDIR\public\bone_setup.cpp" [$LINUXALL]
+		// Linux port, same reason: CStudioHdr helpers (pAnimdesc and
+		// friends) from public/studio.cpp, needed by mdlutils.cpp. Only
+		// interface headers required.
+		$File	"$SRCDIR\public\studio.cpp" [$LINUXALL]
+		// Linux port, same reason: IntersectRayWithBox and friends from
+		// public/collisionutils.cpp, pulled in via bone_setup.cpp above.
+		$File	"$SRCDIR\public\collisionutils.cpp" [$LINUXALL]
 	}
 
 	$Folder	"Header Files"

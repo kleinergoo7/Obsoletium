@@ -660,23 +660,27 @@ void CMDLCache::Shutdown()
 
 		m_MDLDict.Purge();
 
-		if ( m_pModelCacheSection )
+		// Guarded: a dedicated server can reach this teardown after the data
+		// cache module already disconnected (datacache.cpp nulls its own
+		// g_pDataCache global), and a RemoveSection on the null IDatacache
+		// SIGSEGVs (CMDLCache::Shutdown, libdatacache+0x6906f, fault addr 0x0).
+		if ( m_pModelCacheSection && g_pDataCache )
 		{
 			g_pDataCache->RemoveSection( MODEL_CACHE_MODEL_SECTION_NAME );
-			m_pModelCacheSection = NULL;
 		}
-		if ( m_pMeshCacheSection )
+		m_pModelCacheSection = NULL;
+		if ( m_pMeshCacheSection && g_pDataCache )
 		{
 			g_pDataCache->RemoveSection( MODEL_CACHE_MESH_SECTION_NAME );
-			m_pMeshCacheSection = NULL;
 		}
+		m_pMeshCacheSection = NULL;
 	}
 
-	if ( m_pAnimBlockCacheSection )
+	if ( m_pAnimBlockCacheSection && g_pDataCache )
 	{
 		g_pDataCache->RemoveSection( MODEL_CACHE_ANIMBLOCK_SECTION_NAME );
-		m_pAnimBlockCacheSection = NULL;
 	}
+	m_pAnimBlockCacheSection = NULL;
 
 	BaseClass::Shutdown();
 }
@@ -1540,6 +1544,14 @@ bool CMDLCache::BuildHardwareData( MDLHandle_t handle, studiodata_t *pStudioData
 	}
 
 	MdlCacheMsg( "MDLCache: Load studiomdl %s\n", pStudioHdr->pszName() );
+
+	// Port-owned: the async path (ProcessDataIntoCache) can reach here
+	// before vertex data is resident; the sync wrapper gates, but async
+	// does not. Defer (job consumed, flags unset) so the sync path
+	// completes the build once vertexes arrive. Building now would crash
+	// on null vertex data in R_StudioBuildMeshGroup.
+	if ( !GetVertexData( handle ) )
+		return false;
 
 	Assert( GetVertexData( handle ) );
 

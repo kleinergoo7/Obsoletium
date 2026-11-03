@@ -317,16 +317,12 @@ static BOOL IsUserAdmin() {
 #endif
 
 // dimhotepus: Additional bug info.
+// This translation unit is [$WINDOWS] only in tier0.vpc (tier0/platform.cpp vs.
+// tier0/platform_posix.cpp), so the POSIX branch that used to live here was dead
+// code and the symbol was simply never defined on Linux. The POSIX version is in
+// tier0/platform_posix.cpp now.
 bool Plat_IsUserAnAdmin() {
-#if defined(_WIN32)
   return ::IsUserAdmin() ? true : false;
-#else
-  const uid_t uid{getuid()}, euid{geteuid()};
-
-  // We might have elevated privileges beyond that of the user who invoked the
-  // program, due to suid bit.
-  return uid < 0 || euid == 0 || uid != euid;
-#endif
 }
 
 [[nodiscard]] static bool ShouldAppUseLightTheme() {

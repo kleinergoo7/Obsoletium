@@ -7,6 +7,15 @@
 #include <limits>
 
 #ifdef POSIX
+// mem_helpers.h declares g_bInitMemory unconditionally and the
+// ApplyMemoryInitializations() macro reads it from every translation unit that
+// pulls the header in, so it has to exist here too -- the stub below left it
+// undefined, which made every .so referencing it fail to load with
+// "undefined symbol: g_bInitMemory". The POSIX DoApplyMemoryInitializations()
+// is deliberately a no-op, so the flag starts false and the macro skips the
+// call entirely, matching that intent.
+bool g_bInitMemory = false;
+
 void DoApplyMemoryInitializations( void *pMem, size_t nSize )
 {
 }

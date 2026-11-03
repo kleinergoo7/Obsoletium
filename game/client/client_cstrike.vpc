@@ -84,7 +84,17 @@ $Project "client (CStrike)"
 			$File	"$SRCDIR\game\shared\cstrike\cs_gamestats_shared.cpp"
 			$File	"$SRCDIR\game\shared\cstrike\cs_gamestats_shared.h"
 			$File	"$SRCDIR\game\shared\steamworks_gamestats.cpp"
-			$File	"$SRCDIR\game\shared\steamworks_gamestats.h"			
+			$File	"$SRCDIR\game\shared\steamworks_gamestats.h"
+			$File	"$SRCDIR\public\steam\steam_nosteam_stubs.cpp" [$NO_STEAM]
+			{
+				$Configuration
+				{
+					$Compiler
+					{
+						$Create/UsePrecompiledHeader	"Not Using Precompiled Headers"
+					}
+				}
+			}			
 			$File	"cstrike\cs_in_main.cpp"
 			$File	"$SRCDIR\game\shared\cstrike\cs_player_shared.cpp"
 			$File	"$SRCDIR\game\shared\cstrike\cs_playeranimstate.cpp"

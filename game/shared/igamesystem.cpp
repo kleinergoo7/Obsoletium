@@ -166,8 +166,14 @@ bool IGameSystem::InitAllSystems()
 	{
 		// first add any auto systems to the end
 		CAutoGameSystem *pSystem = s_pSystemList;
+		int walkCount = 0;
 		while ( pSystem )
 		{
+			if ( ++walkCount > 500 )
+			{
+				Warning( "InitAllSystems walk exceeds 500 nodes; aborting walk (cyclic list suspected).\n" );
+				break;
+			}
 			if ( s_GameSystems.Find( pSystem ) == s_GameSystems.InvalidIndex() )
 			{
 				Add( pSystem );
@@ -183,8 +189,14 @@ bool IGameSystem::InitAllSystems()
 
 	{
 		CAutoGameSystemPerFrame *pSystem = s_pPerFrameSystemList;
+		int pfWalkCount = 0;
 		while ( pSystem )
 		{
+			if ( ++pfWalkCount > 500 )
+			{
+				Warning( "InitAllSystems-PF walk exceeds 500 nodes; aborting walk (cyclic list suspected).\n" );
+				break;
+			}
 			if ( s_GameSystems.Find( pSystem ) == s_GameSystems.InvalidIndex() )
 			{
 				Add( pSystem );

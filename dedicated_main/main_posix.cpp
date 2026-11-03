@@ -5,6 +5,8 @@
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstddef>
+#include <vector>
 #include <cstdlib>
 #include <cstring>
 #include <climits>
@@ -23,8 +25,8 @@ namespace {
 bool IsDebuggerPresent(int time) {
   // Need to get around the __wrap_open() stuff. Just find the open symbol
   // directly and use it...
-  using open_func_t = int()(const char *pathname, int flags, mode_t mode);
-  open_func_t *open_func = (open_func_t *)dlsym(RTLD_NEXT, "open");
+  using open_func_t = int (*)(const char *pathname, int flags, mode_t mode);
+  open_func_t open_func = (open_func_t)dlsym(RTLD_NEXT, "open");
 
   if (open_func) {
     for (int i = 0; i < time; i++) {
@@ -93,33 +95,72 @@ int main(int argc, char *argv[]) {
     return rc;
   }
 
-  const source::ScopedDll tier0{"libtier0" DLL_EXT_STRING, RTLD_NOW};
-  if (!tier0) {
-    fprintf(stderr, "open %s failed: %s\n", "libtier0" DLL_EXT_STRING,
-            ::dlerror());
-    return 1;
-  }
+  // The generated VPC link graph is incomplete in the same way for every
+  // module: none of them declare the tier libraries they import, so a
+  // shared object ends up with a DT_NEEDED covering only its subsystem peers.
+  // libdedicated.so, for instance, needs appframework and libedit, yet also
+  // imports 113 symbols from tier1, 43 from tier0 and 3 from tier2.
+  //
+  // RTLD_GLOBAL is therefore mandatory, not optional: with the default
+  // RTLD_LOCAL the loader has nowhere to look and stops at
+  //   undefined symbol: ConCommand::IsCommand
+  //
+  // RTLD_LAZY rather than RTLD_NOW is equally required. vstdlib and tier1
+  // reference each other by design -- vstdlib calls ConnectTier1Libraries()
+  // and the ConCommand/ConVar methods once tier1 is mapped, and tier1 calls
+  // back into vstdlib -- so neither can be fully bound before the other is
+  // loaded. Every such cross-tier reference is a function, so deferring the
+  // bind to the first call is correct.
+  //
+  // The order is load-bearing, because RTLD_LAZY still resolves *data*
+  // relocations eagerly. libfilesystem_stdio.so reads the g_pFullFileSystem
+  // global, which tier2/tier2.cpp defines, so tier2 has to be in the global
+  // scope before filesystem_stdio is opened. Each library is therefore listed
+  // after everything it takes data symbols from.
+  constexpr int kTierLoadFlags = RTLD_LAZY | RTLD_GLOBAL;
+  static constexpr const char *const kTierLibraries[] = {
+      "libtier0" DLL_EXT_STRING,
+      "libvstdlib" DLL_EXT_STRING,
+      "libtier1" DLL_EXT_STRING,
+      "libmathlib" DLL_EXT_STRING,
+      "libdatamodel" DLL_EXT_STRING,
+      "libdmserializers" DLL_EXT_STRING,
+      "libtier2" DLL_EXT_STRING,
+      "libtier3" DLL_EXT_STRING,
+      "libfilesystem_stdio" DLL_EXT_STRING,
+      "libappframework" DLL_EXT_STRING,
+      "libsoundemittersystem" DLL_EXT_STRING,
+      "libNetworksystem" DLL_EXT_STRING,
+      "libdmxloader" DLL_EXT_STRING,
+      "libbitmap" DLL_EXT_STRING,
+  };
 
-  const source::ScopedDll vstdlib{"libvstdlib" DLL_EXT_STRING, RTLD_NOW};
-  if (!vstdlib) {
-    fprintf(stderr, "open %s failed: %s\n", "libvstdlib" DLL_EXT_STRING,
-            ::dlerror());
-    return 2;
+  // ScopedDll is move-only, so the handles are kept in a vector; it holds the
+  // dlopen() results for the lifetime of main() and closes them on exit.
+  std::vector<source::ScopedDll> tier_libs;
+  tier_libs.reserve(std::size(kTierLibraries) + 1);
+  for (const char *const name : kTierLibraries) {
+    tier_libs.emplace_back(name, kTierLoadFlags);
+    if (!tier_libs.back()) {
+      fprintf(stderr, "open %s failed: %s\n", name, ::dlerror());
+      return 1;
+    }
   }
 
   constexpr char dedicated_name[]{"libdedicated" DLL_EXT_STRING};
-  const source::ScopedDll dedicated{dedicated_name, RTLD_NOW};
+  tier_libs.emplace_back(dedicated_name, kTierLoadFlags);
+  const source::ScopedDll &dedicated = tier_libs.back();
   if (!dedicated) {
     fprintf(stderr, "open %s failed: %s\n", dedicated_name, ::dlerror());
-    return 3;
+    return 2;
   }
 
   using DedicatedMainFunction = int (*)(int argc, char *argv[]);
-  const auto dedicated_main =
+  const auto [dedicated_main, dedicated_main_rc] =
       dedicated.GetFunction<DedicatedMainFunction>("DedicatedMain");
-  if (!dedicated_main) {
+  if (dedicated_main_rc) {
     fprintf(stderr, "Failed to find dedicated server entry point: %s\n",
-            ::dlerror());
+            dedicated_main_rc.message().c_str());
     return 4;
   }
 

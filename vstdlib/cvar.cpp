@@ -7,6 +7,7 @@
 //===========================================================================//
 
 #include "vstdlib/cvar.h"
+#include <dlfcn.h>
 #include "tier0/icommandline.h"
 #include "tier1/utlrbtree.h"
 #include "tier1/strtools.h"
@@ -1014,6 +1015,44 @@ void CConCommandHash::RemoveAll()
 //-----------------------------------------------------------------------------
 // Find hash entry corresponding to a string name
 //-----------------------------------------------------------------------------
+namespace
+{
+	// Hardening: libengine and libserver each historically exported a symbol
+	// named `sv_noclipduringpause` with DIFFERENT layouts (engine: an 8-byte
+	// `ConVar *` sentinel global; server: a full 144-byte `ConVar`). Linux
+	// dynamic-symbol interposition made the game-side registration bind to the
+	// engine's bare pointer global, so the hash/list could hold entries whose
+	// m_Data is not a real ConCommandBase. Virtual-dispatching GetName() on
+	// such objects reads a garbage vtable word and SIGSEGVs (boot crash seen in
+	// ConVar::GetName / CConCommandHash::Find / engine CErrorText
+	// BuildCommentExtended). The engine's pointer was renamed, but belt-and-
+	// braces: never virtual-call through entries that fail these checks. Roots
+	// are inserted into the hash, and for a root ConCommandBase the name lives
+	// directly at offset 0x18 (m_pszName), so we read it raw -- after verifying
+	// every pointer we touch is inside a mapped object (dladdr walks the
+	// loader's segment map, so this is a safe "is mapped" probe for
+	// .data/.rodata/.bss alike). Entries that fail simply cannot be real
+	// concommands and are skipped.
+	bool IsMapped( const void *p )
+	{
+		Dl_info di = {};
+		return ( p != nullptr && dladdr( p, &di ) && di.dli_fbase != nullptr );
+	}
+
+	const char *GetRootEntryName( const ConCommandBase *obj )
+	{
+		const uintptr_t oa = ( uintptr_t )obj;
+		if ( oa < 0x100000 || oa > ( uintptr_t )0x7fffffffffff )
+			return nullptr;
+		if ( !IsMapped( obj ) || !IsMapped( *( const void ** )obj ) )
+			return nullptr; // garbage vtable word (e.g. engine pointer-var) => not a concommand
+		const char *raw = *( const char ** )( ( const char * )obj + 0x18 );
+		if ( !IsMapped( raw ) )
+			return nullptr;
+		return raw;
+	}
+}
+
 CConCommandHash::CCommandHashHandle_t CConCommandHash::Find( const char *name, HashKey_t hashkey) const RESTRICT
 {
 	// hash the "key" - get the correct hash table "bucket"
@@ -1022,8 +1061,11 @@ CConCommandHash::CCommandHashHandle_t CConCommandHash::Find( const char *name, H
 	for ( auto iElement = m_aBuckets[iBucket]; iElement != m_aDataPool.InvalidIndex(); iElement = m_aDataPool.Next( iElement ) )
 	{
 		const HashEntry_t &element = m_aDataPool[iElement];
-		if ( element.m_uiKey == hashkey && // if hashes of strings match,
-			 V_strieq( name, element.m_Data->GetName() ) ) // then test the actual strings
+		const char *pElemName = GetRootEntryName( element.m_Data );
+		// A bogus entry has no usable name; skip it instead of feeding nullptr
+		// to V_strieq (it would deref).
+		if ( element.m_uiKey == hashkey && pElemName &&
+			 V_strieq( name, pElemName ) ) // then test the actual strings
 		{
 			return iElement;
 		}

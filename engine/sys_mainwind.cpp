@@ -5,8 +5,7 @@
 //===========================================================================//
 #if defined( USE_SDL )
 #undef PROTECTED_THINGS_ENABLE
-#include "include/SDL3/SDL.h"
-#include "include/SDL3/SDL_syswm.h"
+#include <SDL3/SDL.h>
 
 #if defined( OSX )
 #define DONT_DEFINE_BOOL
@@ -1065,7 +1064,13 @@ bool CGame::CreateGameWindow( void )
 		V_strcpy_safe( utf8_window_name, "N/A" );
 	}
 
-	if ( IsOpenGL() )
+	if ( const char *shaderApi = CommandLine()->ParmValue( "-shaderapi", "" );
+		 shaderApi && V_stristr( shaderApi, "vulkan" ) )
+	{
+		// Port-owned native Vulkan backend (shaderapivulkan), not GL.
+		V_strcat_safe( utf8_window_name, " - Vulkan" );
+	}
+	else if ( IsOpenGL() )
 	{
 		V_strcat_safe( utf8_window_name, " - OpenGL" );
 	}
@@ -1078,7 +1083,7 @@ bool CGame::CreateGameWindow( void )
 #if PIX_ENABLE || defined( PIX_INSTRUMENTATION )
 	// PIX_ENABLE/PIX_INSTRUMENTATION is a big slowdown (that should never be
 	// checked in, but sometimes is by accident), so add this to the Window title too.
-	V_strcat_safe( windowName, " - PIX_ENABLE" );
+	V_strcat_safe( utf8_window_name, " - PIX_ENABLE" );
 #endif
 
 #ifdef PLATFORM_64BITS
@@ -1188,7 +1193,7 @@ bool CGame::CreateGameWindow( void )
 #elif defined( USE_SDL )
 	bool windowed = videomode->IsWindowedMode();
 
-	if ( !g_pLauncherMgr->CreateGameWindow( windowName, windowed, 0, 0 ) )
+	if ( !g_pLauncherMgr->CreateGameWindow( utf8_window_name, windowed, 0, 0 ) )
 	{
 		Error( "Fatal Error:  Unable to create game window!" );
 		return false;
@@ -1398,7 +1403,14 @@ class ScopedMilesAudioDevice
   ScopedMilesAudioDevice(IVAudio *audio, IVideoServices *video_services) noexcept
       : m_vaudio{audio},
         m_video_services{video_services},
-        m_miles_sound_device{m_vaudio->CreateMilesAudioEngine()} {
+        m_miles_sound_device{nullptr} {
+    // Port-owned: broken-audio environments have a null audio device;
+    // startup videos play silent instead of crashing (destructor skips
+    // null device).
+    if (!m_vaudio || !m_video_services) {
+      return;
+    }
+    m_miles_sound_device = m_vaudio->CreateMilesAudioEngine();
     const VideoResult_t audio_rc = m_video_services->SoundDeviceCommand(
         VideoSoundDeviceOperation_t::SET_MILES_SOUND_DEVICE, m_miles_sound_device);
     if (audio_rc != VideoResult_t::SUCCESS) {
@@ -1521,13 +1533,17 @@ void CGame::PlayStartupVideos( void )
 	const ScopedMilesAudioDevice scoped_miles_audio_device{vaudio, g_pVideo};
 #endif
 
+#if defined( WIN32 )
 	// dimhotepus: Ensure display is not disabled by powersaver when playing startup videos.
+	// ScopedThreadExecutionState wraps Win32 SetThreadExecutionState(), which has
+	// no counterpart on other platforms, so this is Windows-only.
 	const source::engine::win::ScopedThreadExecutionState
 		scoped_display_required_state{ES_DISPLAY_REQUIRED};
 	if (!scoped_display_required_state.is_success())
 	{
 		Warning("Unable to signal system display is required. Display may disable during video playback.\n");
 	}
+#endif
 
 	// hide cursor while playing videos
   #if defined( USE_SDL )
@@ -1680,8 +1696,10 @@ CGame::CGame()
 	m_iDesktopWidth = 0;
 	m_iDesktopHeight = 0;
 	m_iDesktopRefreshRate = 0;
+#if defined( WIN32 )
 	m_rcLastRestoredClientRect.left = m_rcLastRestoredClientRect.right =
 	m_rcLastRestoredClientRect.top = m_rcLastRestoredClientRect.bottom = 0;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1726,8 +1744,10 @@ void *CGame::GetMainDeviceWindow( void )
 {
 #if defined( DX_TO_GL_ABSTRACTION ) && defined( USE_SDL )
 	return (void*)m_pSDLWindow;
-#else
+#elif defined( WIN32 )
 	return (void*)m_hWindow;
+#else
+	return NULL;
 #endif
 }
 
@@ -1776,11 +1796,17 @@ void CGame::GetDesktopInfo( int &width, int &height, int &refreshrate )
 	refreshrate = 0;
 
 	// Go through all the displays and return the size of the largest.
-	for( int i = 0; i < SDL_GetNumVideoDisplays(); i++ )
+	// SDL3 hands back an SDL_DisplayID* array and an explicit count, where SDL2
+	// provided an index range via SDL_GetNumVideoDisplays().
+	int nDisplays = 0;
+	SDL_DisplayID *pDisplays = SDL_GetDisplays( &nDisplays );
+	RunCodeAtScopeExit( SDL_free( pDisplays ) );
+
+	for( int i = 0; i < nDisplays; i++ )
 	{
 		SDL_Rect rect;
 
-		if ( !SDL_GetDisplayBounds( i, &rect ) )
+		if ( !SDL_GetDisplayBounds( pDisplays[i], &rect ) )
 		{
 			if ( ( rect.w > width ) || ( ( rect.w == width ) && ( rect.h > height ) ) )
 			{
@@ -1816,12 +1842,24 @@ void CGame::UpdateDesktopInformation( )
 	static ConVarRef sdl_displayindex( "sdl_displayindex" );
 	int displayIndex = sdl_displayindex.IsValid() ? sdl_displayindex.GetInt() : 0;
 
-	SDL_DisplayMode mode;
-	SDL_GetDesktopDisplayMode( displayIndex, &mode );
+	int nDisplays = 0;
+	SDL_DisplayID *pDisplays = SDL_GetDisplays( &nDisplays );
+	RunCodeAtScopeExit( SDL_free( pDisplays ) );
 
-	m_iDesktopWidth = mode.w;
-	m_iDesktopHeight = mode.h;
-	m_iDesktopRefreshRate = mode.refresh_rate;
+	if ( !pDisplays || nDisplays <= 0 )
+		return;
+
+	if ( displayIndex < 0 || displayIndex >= nDisplays )
+		displayIndex = 0;
+
+	// SDL3 takes an SDL_DisplayID and returns a const mode pointer.
+	const SDL_DisplayMode *pMode = SDL_GetDesktopDisplayMode( pDisplays[displayIndex] );
+	if ( !pMode )
+		return;
+
+	m_iDesktopWidth = pMode->w;
+	m_iDesktopHeight = pMode->h;
+	m_iDesktopRefreshRate = pMode->refresh_rate;
 #else
 	HDC dc = ::GetDC( m_hWindow );
 	RunCodeAtScopeExit( ReleaseDC( m_hWindow, dc ) );

@@ -166,8 +166,13 @@ const char *GetBaseDirectory(char (&base_dir)[size],
     }
   }
 
-  const char *override_dir{command_line->CheckParm("-basedir")};
-  if (override_dir) V_strcpy_safe(base_dir, override_dir);
+  // CCommandLine::CheckParm() returns the flag token itself, not its value;
+  // the value is written through the out-parameter. Using the return value
+  // here made "-basedir" chdir() into the literal string "-basedir" and die
+  // with "Unable to change current directory to '-basedir': No such file or
+  // directory." Use the same ParmValue() pattern as the -game handling.
+  const char *override_dir{command_line->ParmValue("-basedir", "")};
+  if (override_dir && *override_dir) V_strcpy_safe(base_dir, override_dir);
 
   Q_strlower(base_dir);
   Q_FixSlashes(base_dir);
@@ -179,7 +184,7 @@ void DumpAppInformation(int argc, char **argv) {
 #if defined(POSIX)
 #if defined(__clang__)
   const std::string kCompilerVersion{"Clang " __clang_version__};
-#elif defined(__GCC__)
+#elif defined(__GNUC__)
   const std::string kCompilerVersion{std::to_string(__GNUC__) + "." +
                                      std::to_string(__GNUC_MINOR__) + "." +
                                      std::to_string(__GNUC_PATCHLEVEL__)};

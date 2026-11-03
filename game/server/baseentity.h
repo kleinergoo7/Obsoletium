@@ -1094,7 +1094,16 @@ public:
 #ifdef _DEBUG
 
 #ifdef GNUC
-#define ENTITYFUNCPTR_SIZE	8
+// A member function pointer is 16 bytes under the Itanium C++ ABI that GCC and
+// Clang use on x86-64 (function address plus adjustment thunk), and 4 bytes on
+// 32-bit x86. The old #ifdef GNUC branch hardcoded 8, which was only ever true
+// for a 32-bit build, so every *Set() helper below failed its COMPILE_TIME_ASSERT
+// with "16 == 8" as soon as the server was built 64-bit.
+#if defined( __x86_64__ ) || defined( _M_X64 ) || defined( __LP64__ )
+#define ENTITYFUNCPTR_SIZE	16
+#else
+#define ENTITYFUNCPTR_SIZE	4
+#endif
 #else
 #define ENTITYFUNCPTR_SIZE sizeof(void*)
 #endif

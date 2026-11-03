@@ -3,6 +3,11 @@
 #include "boot_app_system_group.h"
 
 #include "appframework/AppFramework.h"
+#if defined(USE_SDL)
+#include "appframework/ilaunchermgr.h"
+// Port: defined in appframework/sdlmgr.cpp but declared in no header.
+void *CreateSDLMgr();
+#endif
 #include "datacache/idatacache.h"
 #include "datacache/imdlcache.h"
 #include "filesystem.h"

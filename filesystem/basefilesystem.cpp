@@ -27,6 +27,10 @@
 
 #include "ifilelist.h"
 
+#if defined( POSIX ) || defined( _LINUX ) || defined( __linux__ )
+#include <unistd.h>
+#endif
+
 #ifdef IS_WINDOWS_PC
 // Needed for getting file type string
 #define WIN32_LEAN_AND_MEAN
@@ -4766,6 +4770,41 @@ CSysModule *CBaseFileSystem::LoadModule( const char *pFileName, const char *pPat
 	// couldn't load it from any of the search paths, let LoadLibrary try
 	// dimhotepus: Prevent loading something placed into current directory!
 	// return Sys_LoadModule( pFileName );
+
+#if defined( POSIX ) || defined( _LINUX ) || defined( __linux__ )
+	// The bare call above is deliberately gone because Sys_LoadModule resolves
+	// a slashless name through the dynamic linker's search path and the
+	// process working directory, and a caller must not be able to smuggle a
+	// module in next to the server. That leaves the executable's own directory,
+	// which is where every engine module lives.
+	//
+	// This fallback is required, not an optimisation: the dedicated server calls
+	// IFileSystem::LoadModule from DedicatedAppSystemGroup::Create(), which runs
+	// *before* PreInit() calls FileSystem_MountContent(). Until that call the
+	// search path list is still empty, so the loop above iterates zero times and
+	// returns nullptr, and the visible result was a silent exit 255 -- the
+	// engine was never even opened, and Sys_LoadLibrary() suppresses any dlopen
+	// error containing "No such file", so not even that was reported.
+	char szExecutablePath[ MAX_PATH ];
+	const ssize_t nExecutablePathLength =
+		readlink( "/proc/self/exe", szExecutablePath, sizeof( szExecutablePath ) - 1 );
+	if ( nExecutablePathLength > 0 )
+	{
+		szExecutablePath[ nExecutablePathLength ] = '\0';
+		// V_ExtractFilePath() yields the directory without a trailing separator.
+		char szModulePath[ MAX_PATH ];
+		if ( V_ExtractFilePath( szExecutablePath, szModulePath, sizeof( szModulePath ) ) )
+		{
+			Q_strncat( szModulePath, CORRECT_PATH_SEPARATOR_S, sizeof( szModulePath ) );
+			Q_strncat( szModulePath, pFileName, sizeof( szModulePath ) );
+			if ( CSysModule *pModule = Sys_LoadModule( szModulePath ) )
+			{
+				return pModule;
+			}
+		}
+	}
+#endif
+
 	return nullptr;
 }
 
@@ -5376,7 +5415,7 @@ int CMemoryFileHandle::Seek( int64 nOffset64, int nWhence )
 {
 	if ( nWhence == SEEK_SET )
 	{
-		m_nPosition = (int) clamp( nOffset64, 0ll, m_nLength );
+		m_nPosition = (int) clamp<int64>( nOffset64, 0, m_nLength );
 	}
 	else if ( nWhence == SEEK_CUR )
 	{
@@ -5384,7 +5423,7 @@ int CMemoryFileHandle::Seek( int64 nOffset64, int nWhence )
 	}
 	else if ( nWhence == SEEK_END )
 	{
-		m_nPosition = (int) m_nLength + (int) clamp( nOffset64, -m_nLength, 0LL );
+		m_nPosition = (int) m_nLength + (int) clamp<int64>( nOffset64, -m_nLength, 0 );
 	}
 	return m_nPosition;
 }

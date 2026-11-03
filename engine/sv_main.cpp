@@ -270,7 +270,7 @@ static void OnTVEnableChanged( IConVar *pConVar, const char *pOldString, float f
 
 ConVar tv_enable( "tv_enable", "0", FCVAR_NOTIFY, "Activates SourceTV on server.", OnTVEnableChanged );
 
-extern ConVar *sv_noclipduringpause;
+extern ConVar *s_pNoclipDuringPause;
 
 static bool s_bForceSend = false;
 
@@ -826,7 +826,7 @@ void SV_InitGameDLL( void )
 		host_name.SetValue( serverGameDLL->GetGameDescription() );
 	}
 
-	sv_noclipduringpause = ( ConVar * )g_pCVar->FindVar( "sv_noclipduringpause" );
+	 s_pNoclipDuringPause = ( ConVar * )g_pCVar->FindVar( "sv_noclipduringpause" );
 
 	COM_TimestampedLog( "SV_InitSendTables" );
 
@@ -1295,7 +1295,13 @@ bool CGameServer::FinishCertificateCheck( netadr_t &adr, int nAuthProtocol, cons
 		if ( AllowDebugDedicatedServerOutsideSteam() )
 			return true;
 
-		if ( !Host_IsSinglePlayerGame() || sv.IsDedicated()) // PROTOCOL_HASHEDCDKEY isn't allowed for multiplayer servers
+		// Port-owned: CBaseServer::GetChallengeType hands out CD-key auth
+		// exactly when Steam isn't running (baseserver.cpp), so a local
+		// listen server without Steam offers this protocol and then used to
+		// reject it. Accept it while Steam is absent to keep the offer and
+		// the check in agreement; a Steam or dedicated server is unchanged.
+		if ( sv.IsDedicated() ||
+			( !Host_IsSinglePlayerGame() && Steam3Client().SteamUser() ) )
 		{
 			RejectConnection( adr, clientChallenge, "#GameUI_ServerCDKeyAuthInvalid" );
 			return false;
@@ -2770,7 +2776,7 @@ void SV_Frame( bool finalTick )
 	g_ServerGlobalVariables.frametime = host_state.interval_per_tick;
 
 	bool bIsSimulating = SV_IsSimulating();
-	bool bSendDuringPause = sv_noclipduringpause ? sv_noclipduringpause->GetBool() : false;
+	bool bSendDuringPause = s_pNoclipDuringPause ? s_pNoclipDuringPause->GetBool() : false;
 
 	// unlock sting tables to allow changes, helps to find unwanted changes (bebug build only)
 	networkStringTableContainerServer->Lock( false );

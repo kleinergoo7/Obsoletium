@@ -1217,9 +1217,9 @@ void CHLClient::Shutdown( void )
 
 	factorylist_t factories = {};
 	FactoryList_Store( factories );
-	
-	g_pSourceVR = nullptr;
-	scriptmanager = nullptr;
+
+	// Port-owned: g_pSourceVR/scriptmanager are tier imports shared
+	// process-wide on Linux (see below); leaving them valid.
 
 #ifdef WORKSHOP_IMPORT_ENABLED
 	ShutdownFbx();
@@ -1232,42 +1232,26 @@ void CHLClient::Shutdown( void )
 	g_pEngineClientReplay = nullptr;
 #endif
 
-#ifndef _XBOX
-	gamestatsuploader = nullptr;
-#endif
+	// Port-owned: the lines below used to null ~25 tier interface imports
+	// (matchmaking..engine, scriptmanager, gamestatsuploader, g_pSourceVR).
+	// Those globals are process-wide singletons on Linux (RTLD_GLOBAL
+	// interposition), not per-DLL copies as on Windows — nulling them here
+	// vandalizes every module that outlives the client DLL (server/engine
+	// shutdown runs after ClientDLL_Shutdown and crashed on the nulls).
+	// The imports stay valid until process exit; the DLL's own state
+	// (gpGlobals etc.) is still released below.
 
-	matchmaking = nullptr;
-	xboxsystem = nullptr;
-	scenefilecache = nullptr;
-	inputsystem = nullptr;
-	soundemitterbase = nullptr;
-	gameeventmanager = nullptr;
-	gameuifuncs = nullptr;
-	random = nullptr;
-	filesystem = nullptr;
-	enginesound = nullptr;
-	staticpropmgr = nullptr;
-	shadowmgr = nullptr;
-	partition = nullptr;
-	networkstringtable = nullptr;
-	enginevgui = nullptr;
-	modelinfo = nullptr;
-	mdlcache = nullptr;
-	datacache = nullptr;
-	debugoverlay = nullptr;
-	render = nullptr;
-	enginetrace = nullptr;
-	effects = nullptr;
-	modelrender = nullptr;
-	engine = nullptr;
-	
 #ifndef NO_STEAM
 	ClientSteamContext().Shutdown();
 #endif
-	
-	DisconnectTier3Libraries();
-	DisconnectTier2Libraries();
-	DisconnectTier1Libraries();
+
+	// Port-owned: on Linux the tier1/2/3 interface globals are process-wide
+	// singletons (RTLD_GLOBAL interposition), not per-DLL copies as on
+	// Windows. DisconnectTier*Libraries() here would null them for every
+	// module that outlives the client DLL (engine shutdown runs after
+	// ClientDLL_Shutdown and needs them) and crash teardown with null
+	// dereferences. The DLL's own imports are nulled above; the shared
+	// singletons stay valid until launcher PostShutdown at process exit.
 
 	gpGlobals = nullptr;
 

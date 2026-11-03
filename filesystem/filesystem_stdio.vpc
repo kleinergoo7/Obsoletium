@@ -26,6 +26,12 @@ $Configuration
 
 		// Add VPK support
 		$PreprocessorDefinitions	"$BASE;SUPPORT_PACKED_STORE" [$WINDOWS]
+		// Windows-only guard left VPK search paths from gameinfo.txt silently
+		// skipped on POSIX: AddVPKFile() compiled to nothing, so every
+		// *_{pak,pack}_dir.vpk mount was dropped and the engine reported
+		// "Unable to load manifest file 'particles/particles_manifest.txt'"
+		// + unknown serverevents (content only present inside the VPKs).
+		$PreprocessorDefinitions	"$BASE;SUPPORT_PACKED_STORE" [$POSIX]
 		$EnableC++Exceptions		"Yes (/EHsc)"
 	}
 	$Linker

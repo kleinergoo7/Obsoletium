@@ -25,6 +25,19 @@ $Configuration
 
 	$Compiler
 	{
+		// The POSIX skeleton lists public/tier0/memoverride.cpp, whose
+		// operator new/delete block is written against MSVC: it carries SAL
+		// annotations (_Ret_notnull_, _Post_writable_byte_size_, _Success_, ...)
+		// that are defined nowhere in this tree, so GCC rejected it with a parse
+		// error at memoverride.cpp:440 and five more sites. NO_MEMOVERRIDE_NEW_DELETE
+		// is the switch that file already tests around exactly that block, so use
+		// it: Linux keeps the rest of the file and skips only the global
+		// operator new/delete replacement.
+		// Note this must NOT be NO_MALLOC_OVERRIDE: that one guards all of
+		// tier0/memdbg.cpp (memdbg.cpp:7), and taking it out removed the whole
+		// debug allocator, so libtier0.so stopped exporting g_pMemAlloc() and
+		// every module failed to load with "undefined symbol: g_pMemAlloc".
+		$PreprocessorDefinitions		"$BASE;NO_MEMOVERRIDE_NEW_DELETE"
 		$PreprocessorDefinitions		"$BASE;EXENAME=$OUTBINNAME"
 	}
 

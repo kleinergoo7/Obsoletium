@@ -147,4 +147,14 @@ bool ConvertObsoleteVConfigRegistrySetting( const char *pValueName )
 
 	return false;
 }
+#else
+// Port: no registry on Linux. Callers (e.g. matsys_controls/QCGenerator.cpp)
+// already handle false by falling back, so report absence.
+bool GetVConfigRegistrySetting( const char *pName, char *pReturn, unsigned long size )
+{
+	(void)pName;
+	if ( size )
+		pReturn[0] = '\0';
+	return false;
+}
 #endif

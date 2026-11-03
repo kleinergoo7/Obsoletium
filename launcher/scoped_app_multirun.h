@@ -42,6 +42,13 @@ constexpr inline unsigned long kWaitAbandoned{0x00000080L};
 #include "tier0/icommandline.h"
 #include "tier1/strtools.h"
 
+// Port: fallback game dir for the singleton lock file. Upstream only ever
+// defined this on the Windows path; "hl2" matches the macro name and is only
+// used when -game is absent (CS:S runs pass -game cstrike).
+#ifndef DEFAULT_HL2_GAMEDIR
+#define DEFAULT_HL2_GAMEDIR "hl2"
+#endif
+
 namespace se::launcher {
 
 // App multirun.
@@ -161,7 +168,7 @@ class ScopedAppMultiRun {
 #if defined(WIN32)
     return !!mutex_;
 #else
-    return lock_handle_ != -1
+    return lock_handle_ != -1;
 #endif
   }
 

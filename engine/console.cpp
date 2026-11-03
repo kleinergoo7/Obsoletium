@@ -13,7 +13,10 @@
 
 #include <ctime>
 
-#include "../out/build/app_version_config.h"
+// The version banner. Upstream includes a header generated into
+// ../out/build/ by a Windows-only build step; on this port it is a static
+// stand-in under cmake/compat/, which is already on the include path.
+#include "app_version_config.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"

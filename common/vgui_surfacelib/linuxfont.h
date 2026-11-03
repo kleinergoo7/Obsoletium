@@ -25,7 +25,7 @@ class CLinuxFont
 {
 public:
 	CLinuxFont();
-	~CLinuxFont();
+	virtual ~CLinuxFont();
 
 	// creates the font from windows.  returns false if font does not exist in the OS.
 	virtual bool CreateFromMemory(const char *windowsFontName, void *data, int size, int tall, int weight, int blur, int scanlines, int flags);
@@ -43,7 +43,7 @@ public:
 	//  A spacing is the distance to add to the current position before drawing the character glyph.
 	//  B spacing is the width of the drawn portion of the glyph.
 	//  C spacing is the distance to add to the current position to provide white space to the right of the glyph.
-	virtual void GetCharABCWidths(int ch, int &a, int &b, int &c);
+	virtual void GetCharABCWidths(wchar_t ch, int &a, int &b, int &c);
 
 	// set the font to be the one to currently draw with in the gdi
 	void *SetAsActiveFont( void *glContext );
@@ -124,7 +124,7 @@ private:
 	};
 
 	
-	CUtlRBTree<abc_cache_t, unsigned short> m_ExtendedABCWidthsCache;
+	CUtlRBTree<abc_cache_t, int> m_ExtendedABCWidthsCache;
 	static bool ExtendedABCWidthsCacheLessFunc(const abc_cache_t &lhs, const abc_cache_t &rhs);
 
 	// cache for storing asian abc widths (since it's too big too just store them all)
@@ -141,7 +141,7 @@ private:
 		kernedSize abc;
 	};
 	
-	CUtlRBTree<kerned_abc_cache_t, unsigned short> m_ExtendedKernedABCWidthsCache;
+	CUtlRBTree<kerned_abc_cache_t, int> m_ExtendedKernedABCWidthsCache;
 	static bool ExtendedKernedABCWidthsCacheLessFunc(const kerned_abc_cache_t &lhs, const kerned_abc_cache_t &rhs);
 
 	bool m_faceValid;

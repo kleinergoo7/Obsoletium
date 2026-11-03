@@ -11,6 +11,12 @@
 
 #include <thread>
 
+// Port: NTSTATUS exit codes used below. winlite.h (Windows-only) provides
+// them upstream; define the one value needed on POSIX.
+#if !defined(_WIN32) && !defined(STATUS_ILLEGAL_INSTRUCTION)
+#define STATUS_ILLEGAL_INSTRUCTION 0xC000001D
+#endif
+
 #include "app_version_config.h"
 #include "../launcher_main/resource.h"
 
@@ -31,6 +37,11 @@
 #include "tier0/dbg.h"
 #include "tier0/icommandline.h"
 
+#ifndef _WIN32
+#include <unistd.h>  // readlink for GetExecutableName
+#include <sys/stat.h>  // stat for GetBaseDirectory game-root validation
+#endif
+
 #include "boot_app_system_group.h"
 #include "file_logger.h"
 #include "vcr_helpers.h"
@@ -38,7 +49,7 @@
 #define VERSION_SAFE_STEAM_API_INTERFACES
 #include "steam/steam_api.h"
 
-#include "include/SDL3/SDL.h"
+#include <SDL3/SDL.h>
 
 #ifdef __GLIBC__
 #include <gnu/libc-version.h>
@@ -116,7 +127,14 @@ bool GetExecutableName(char (&out)[out_size]) {
   }
   return true;
 #else
-  return false;
+  // Port: /proc/self/exe resolves through our bin/linux64/hl2_linux symlink
+  // to the real launcher_main binary; dirname handling below strips the file.
+  ssize_t len = ::readlink("/proc/self/exe", out, out_size - 1);
+  if (len <= 0 || len >= (ssize_t)(out_size - 1)) {
+    return false;
+  }
+  out[len] = '\0';
+  return true;
 #endif
 }
 
@@ -126,7 +144,12 @@ void GetBaseDirectory(ICommandLine *command_line,
   base_directory[0] = '\0';
 
   if (GetExecutableName(base_directory)) {
+// Port: Windows paths separate with '\\'; POSIX with '/'.
+#ifdef WIN32
     char *buffer = strrchr(base_directory, '\\');
+#else
+    char *buffer = strrchr(base_directory, '/');
+#endif
 
     if (buffer && *buffer) *(buffer + 1) = '\0';
 
@@ -141,6 +164,23 @@ void GetBaseDirectory(ICommandLine *command_line,
 
   const char *override_directory{command_line->CheckParm("-basedir")};
   if (override_directory) V_strcpy_safe(base_directory, override_directory);
+
+#ifndef _WIN32
+  // Port: /proc/self/exe resolves through staging symlinks to the build
+  // tree, which has no game content. If the exe directory does not contain
+  // <game>/gameinfo.txt but the startup working directory does, stay where
+  // the user put us (hl2.sh/game root) instead of chdir-ing into the build.
+  {
+    const char *game = command_line->ParmValue("-game", "hl2");
+    char exeGameInfo[MAX_PATH], cwdGameInfo[MAX_PATH];
+    V_snprintf(exeGameInfo, sizeof(exeGameInfo), "%s/%s/gameinfo.txt", base_directory, game);
+    V_snprintf(cwdGameInfo, sizeof(cwdGameInfo), "./%s/gameinfo.txt", game);
+    struct stat exeSt, cwdSt;
+    if (stat(exeGameInfo, &exeSt) != 0 && stat(cwdGameInfo, &cwdSt) == 0) {
+      V_strcpy_safe(base_directory, ".");
+    }
+  }
+#endif
 
 #ifdef WIN32
   Q_strlower(base_directory);
@@ -310,7 +350,7 @@ void DumpAppInformation(
 #if defined(POSIX)
 #if defined(__clang__)
   const std::string kCompilerVersion{"Clang " __clang_version__};
-#elif defined(__GCC__)
+#elif defined(__GNUC__)
   const std::string kCompilerVersion{std::to_string(__GNUC__) + "." +
                                      std::to_string(__GNUC_MINOR__) + "." +
                                      std::to_string(__GNUC_PATCHLEVEL__)};

@@ -37,19 +37,15 @@ misrepresented as being the original software.
 #endif
 #endif
 
-#ifdef _SQ64
-#ifdef _MSC_VER
-using SQInteger = __int64;
-#else
-using SQInteger = long long;
-#endif
-#else
-using SQInteger = int;
-#endif
+// SQInteger, SQRESULT and SQBool belong to sqconfig.h, which picks their width
+// from _SQ64 -- so it must be included after the _SQ64 fixup above, not before.
+// This header used to re-declare all three itself. On GCC that is a hard
+// conflicting-declaration error rather than a tolerated duplicate, and the two
+// spellings did not even agree: SQBool was std::size_t here but
+// SQUnsignedInteger in sqconfig.h.
+#include <sqconfig.h>
 
 using HSQUIRRELVM = struct SQVM*;
-using SQRESULT = SQInteger;
-using SQBool = std::size_t;
 
 namespace sq::dbg {
 

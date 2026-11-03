@@ -23,7 +23,9 @@ using SOCKET = int;
 #include <string>
 #include <vector>
 
-using SOCKET = std::size_t;
+// SOCKET comes from the platform block above (POSIX declares it as int next to
+// <sys/socket.h>); redeclaring it as std::size_t is a conflicting declaration
+// there, so it is no longer defined unconditionally.
 using SQDBGString = std::basic_string<SQChar>;
 
 inline bool dbg_less(const SQChar *x, const SQChar *y) {

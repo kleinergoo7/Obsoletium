@@ -314,6 +314,16 @@ $Project "server (TF)"
 			$File	"$SRCDIR\game\shared\tf\tf_viewmodel.h"
 			$File	"$SRCDIR\game\shared\steamworks_gamestats.cpp"
 			$File	"$SRCDIR\game\shared\steamworks_gamestats.h"
+			$File	"$SRCDIR\public\steam\steam_nosteam_stubs.cpp" [$NO_STEAM]
+			{
+				$Configuration
+				{
+					$Compiler
+					{
+						$Create/UsePrecompiledHeader	"Not Using Precompiled Headers"
+					}
+				}
+			}
 			$File	"$SRCDIR\game\shared\tf\tf_gamestats_shared.cpp"
 			$File	"$SRCDIR\game\server\tf\tf_gc_api.h"
 			$File	"$SRCDIR\game\server\tf\tf_gc_api.cpp"

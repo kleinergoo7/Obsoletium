@@ -635,8 +635,15 @@ FileHandle_t SafeOpenRead(const char *filename) {
 
     char tmp[MAX_PATH];
     for (intp i = 0; i < g_NumBasePaths; i++) {
-      strcpy_s(tmp, g_pBasePaths[i]);
-      strcat_s(tmp, filename);
+      // strcpy_s/strcat_s are MSVC-only safe CRT calls; on Linux this failed
+      // to compile with
+      //   Fehler: »strcpy_s« wurde in diesem Gültigkeitsbereich nicht
+      //   deklariert; meinten Sie »strcpy«?
+      // (and the same for strcat_s). tier1/strtools.h (included above)
+      // provides the array-sized V_strcpy_safe/V_strcat_safe equivalents,
+      // which is exactly how the rest of this port replaced the call.
+      V_strcpy_safe(tmp, g_pBasePaths[i]);
+      V_strcat_safe(tmp, filename);
 
       f = g_pFileSystem->Open(tmp, "rb");
       if (f) return f;

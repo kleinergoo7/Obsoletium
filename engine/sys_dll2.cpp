@@ -24,6 +24,11 @@
 #include <signal.h>
 #endif
 
+// EnableLongTickWatcher()/LongTickWatcherThread() use std::thread and
+// chrono_literals but relied on these arriving transitively on MSVC.
+#include <chrono>
+#include <thread>
+
 #include "quakedef.h"
 #include "idedicatedexports.h"
 #include "engine_launcher_api.h"
@@ -1843,6 +1848,10 @@ extern "C" void __cdecl WriteSteamMiniDumpWithComment( unsigned int uStructuredE
 	}
 #else
 	// dimhotepus: Write dump via tier0 if no Steam.
+	// (Windows-only: WriteMiniDumpUsingExceptionInfo/SetMinidumpComment have
+	// no Linux implementation -- tier0's POSIX minidump.cpp is a no-op stub.
+	// Matches nillerusr/source-engine, whose no-Steam path is empty.)
+#if defined( _WIN32 )
 	if ( g_bUpdateMinidumpComment )
 	{
 		BuildMinidumpComment( NULL, true );
@@ -1851,6 +1860,11 @@ extern "C" void __cdecl WriteSteamMiniDumpWithComment( unsigned int uStructuredE
 	SetMinidumpComment(errorText.m_errorText);
 
 	WriteMiniDumpUsingExceptionInfo( uStructuredExceptionCode, pExceptionInfo, 0x00000002 /* MiniDumpWithFullMemory */, "engine_crash" );
+#else
+	(void)uStructuredExceptionCode;
+	(void)pExceptionInfo;
+	(void)pszFilenameSuffix;
+#endif
 #endif
 } 
 
@@ -2429,6 +2443,17 @@ bool CDedicatedServerAPI::ModInit( ModInfo_t &info )
 
 void CDedicatedServerAPI::ModShutdown( void )
 {
+	// Unload the engine BEFORE destroying the mod app system group. The
+	// nested group owns the cvar/engine/data-cache/module lifetimes; deleting
+	// it first runs CCvar::Disconnect -> DisconnectTier1Libraries() (nulls
+	// tier1's g_pCVar), disconnects the data cache (nulls g_pDataCache), etc.
+	// A subsequent eng->Unload() -> Host_Shutdown() then dereferences those
+	// null globals and SIGSEGVs (CBaseServer::Shutdown, g_pCVar->Shutdown(),
+	// g_pDataCache->SetSize, ...). Teardown must run while the systems are
+	// still connected.
+	if ( eng )
+		eng->Unload();
+
 	if ( m_pDedicatedServer )
 	{
 		delete m_pDedicatedServer;
@@ -2437,13 +2462,14 @@ void CDedicatedServerAPI::ModShutdown( void )
 
 	g_AppSystemFactory = NULL;
 
-	// Unload GL, Sound, etc.
-	eng->Unload();
-
 	// Shut down memory, etc.
 	game->Shutdown();
 
-	materials->ModShutdown();
+	// Guarded: the tier2 disconnect during engine/mod teardown nulls
+	// materials (DisconnectTier2Libraries); dereferencing the null
+	// IMaterialSystem would SIGSEGV here (mov (%rax),%rax, fault addr 0x0).
+	if ( materials )
+		materials->ModShutdown();
 	TRACESHUTDOWN( COM_ShutdownFileSystem() );
 }
 

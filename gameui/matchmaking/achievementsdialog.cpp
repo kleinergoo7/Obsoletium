@@ -5,6 +5,7 @@
 //=============================================================================//
 
 #include "achievementsdialog.h"
+#include <mutex>
 #include "vgui_controls/Button.h"
 #include "vgui/ILocalize.h"
 #include "ixboxsystem.h"

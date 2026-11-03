@@ -4320,7 +4320,23 @@ void Host_Shutdown(void)
 	TRACESHUTDOWN( V_Shutdown() );
 #endif
 
-	TRACESHUTDOWN( g_pCVar->Shutdown() );
+	// Guarded: for a dedicated server the cvar system can already be gone by
+	// the time Host_Shutdown reaches here -- vstdlib's CCvar::Disconnect runs
+	// DisconnectTier1Libraries(), which nulls tier1's g_pCVar, when the mod
+	// app system group is torn down. Dereferencing the null ICvar then
+	// SIGSEGVs inside Host_Shutdown:
+	//
+	//   CRASH Host_Shutdown [libengine+0x478214] mov (%rax),%rax
+	//     g_pCVar (libtier1) == NULL, fault addr 0x0
+	//     (after COM_Shutdown, at the g_pCVar->Shutdown() teardown step)
+	//
+	// A null cvar system has no shutdown to perform; the call is skipped.
+	// (Braces are required: TRACESHUTDOWN expands to two statements, so the
+	// guarded expression alone would let g_pCVar->Shutdown() escape the if.)
+	if ( g_pCVar )
+	{
+		TRACESHUTDOWN( g_pCVar->Shutdown() );
+	}
 
 	TRACESHUTDOWN( Cmd_Shutdown() );
 

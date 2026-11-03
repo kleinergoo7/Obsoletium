@@ -1643,7 +1643,12 @@ void CBaseServer::Init (bool bIsDedicated)
 	
 	m_Signon.SetDebugName( "m_Signon" );
 	
-	g_pCVar->InstallGlobalChangeCallback( ServerNotifyVarChangeCallback );
+	// Guarded to match the guarded RemoveGlobalChangeCallback in Shutdown():
+	// a null cvar system (tier1 g_pCVar nulled by CCvar::Disconnect) means no
+	// callback can be installed, and installing one would crash on the null
+	// ICvar instead.
+	if ( g_pCVar )
+		g_pCVar->InstallGlobalChangeCallback( ServerNotifyVarChangeCallback );
 	SetMasterServerRulesDirty();
 	
 	Clear();
@@ -2054,7 +2059,22 @@ CBaseClient *CBaseServer::CreateFakeClient( const char *name )
 void CBaseServer::Shutdown( void )
 {
 	// dimhotepus: Cleanup itself.
-	g_pCVar->RemoveGlobalChangeCallback( ServerNotifyVarChangeCallback );
+	//
+	// The dedicated server can reach this teardown after the cvar system has
+	// already been disconnected: vstdlib's CCvar::Disconnect runs
+	// DisconnectTier1Libraries() which nulls tier1's g_pCVar, and the nested
+	// CModAppSystemGroup for the mod owns that cvar lifetime. Dereferencing
+	// the null ICvar then SIGSEGVs here:
+	//
+	//   CRASH CBaseServer::Shutdown [libengine+0x38b436] mov (%rax),%rax
+	//     g_pCVar (libtier1) == NULL, fault addr 0x0
+	//     CGameServer::Shutdown <- Host_Shutdown <- Sys_ShutdownGame
+	//     <- CEngine::Unload <- CDedicatedServerAPI::ModShutdown
+	//
+	// A null cvar system can only mean the callback was never (or is no
+	// longer) installable, so skipping the removal is exactly correct.
+	if ( g_pCVar )
+		g_pCVar->RemoveGlobalChangeCallback( ServerNotifyVarChangeCallback );
 
 	// dimhotepus: Reset debug name.
 	m_Signon.SetDebugName( nullptr );

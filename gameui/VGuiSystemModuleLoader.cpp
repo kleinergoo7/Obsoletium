@@ -123,7 +123,8 @@ bool CVGuiSystemModuleLoader::LoadPlatformModules(CreateInterfaceFn *factorylist
 
 	// load platform menu
 	KeyValues *kv = new KeyValues("Platform");
-	if (!kv->LoadFromFile(g_pFullFileSystem, "steam/games/PlatformMenu.vdf", "PLATFORM"))
+	bool bVdf = kv->LoadFromFile(g_pFullFileSystem, "steam/games/PlatformMenu.vdf", "PLATFORM");
+	if (!bVdf)
 	{
 		kv->deleteThis();
 		return false;
@@ -202,15 +203,23 @@ void CVGuiSystemModuleLoader::ShutdownPlatformModules()
 	// deactivate all the modules first
 	DeactivatePlatformModules();
 
-	// give all the modules notice of quit
-	for ( auto &m : m_Modules )
+	// Port-owned: vgui tier3 interfaces are already disconnected this late
+	// in engine shutdown; broadcasting Quit and pumping frames needs a live
+	// ivgui. Skip it when dead (panels die with the process); per-module
+	// Shutdown calls below still run.
+	bool bVGuiAlive = ( vgui::ivgui() != nullptr );
+	if ( bVGuiAlive )
 	{
-		vgui::ivgui()->PostMessage(m.moduleInterface->GetPanel(), new KeyValues("Command", "command", "Quit"), NULL);
-	}
+		// give all the modules notice of quit
+		for ( auto &m : m_Modules )
+		{
+			vgui::ivgui()->PostMessage(m.moduleInterface->GetPanel(), new KeyValues("Command", "command", "Quit"), NULL);
+		}
 
-	// dimhotepus: Give panels a chance to settle so things
-	//  Marked for deletion will actually get deleted
-	vgui::ivgui()->RunFrame();
+		// dimhotepus: Give panels a chance to settle so things
+		//  Marked for deletion will actually get deleted
+		vgui::ivgui()->RunFrame();
+	}
 
 	for ( auto &m : m_Modules )
 	{
@@ -247,9 +256,15 @@ void CVGuiSystemModuleLoader::ReactivatePlatformModules()
 //-----------------------------------------------------------------------------
 void CVGuiSystemModuleLoader::UnloadPlatformModules()
 {
-	for ( auto &m : m_Modules )
+	// Port-owned: the filesystem interface is already disconnected this
+	// late in engine shutdown (same class as the vgui disconnects above);
+	// the OS unloads the modules at process exit anyway.
+	if ( g_pFullFileSystem )
 	{
-		g_pFullFileSystem->UnloadModule(m.module);
+		for ( auto &m : m_Modules )
+		{
+			g_pFullFileSystem->UnloadModule(m.module);
+		}
 	}
 
 	m_Modules.RemoveAll();

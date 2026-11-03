@@ -453,7 +453,10 @@ inline bool IsSpewActive( StandardSpewGroup_t group, int level )
 	return s_DefaultLevel.load(std::memory_order::memory_order_relaxed) >= level;
 }
 
-SpewRetval_t  _SpewMessage( PRINTF_FORMAT_STRING const tchar* pMsgFormat, ... ) FMTFUNCTION( 1, 2 )
+// The format attribute belongs on the declaration (public/tier0/dbg.h), not
+// on the definition: GCC rejects __attribute__ between the parameter list
+// and the body of a function definition.
+SpewRetval_t  _SpewMessage( PRINTF_FORMAT_STRING const tchar* pMsgFormat, ... )
 {
 	va_list args;
 	va_start( args, pMsgFormat ); //-V2018 //-V2019

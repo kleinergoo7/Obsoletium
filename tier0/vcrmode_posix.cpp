@@ -19,10 +19,8 @@
 // FIXME: We totally have a bad tier dependency here
 #include "inputsystem/InputEnums.h"
 
-enum {
-  VCRFILE_VERSION =		2
-};
-
+// VCRFILE_VERSION is already provided by tier0/vcr_shared.h as
+// constexpr inline int; re-declaring it here is a redeclaration error.
 #define VCR_RuntimeAssert(x)	VCR_RuntimeAssertFn(x, #x)
 #define PvAlloc malloc
 

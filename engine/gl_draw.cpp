@@ -30,7 +30,24 @@ Vector g_MainViewOrigin(0, 0, 0), g_MainViewForward(1, 0, 0), g_MainViewRight(0,
 //-----------------------------------------------------------------------------
 void GL_UnloadMaterial( IMaterial *pMaterial )
 {
-	if ( pMaterial ) 
+	// Dedicated/headless shutdown: the material system may already have been
+	// disconnected (tier2 DisconnectTier2Libraries() nulls `materials`
+	// [tier2.cpp:139]) before Host_Shutdown -> ShutdownDebugMaterials tries
+	// to release the debug materials.
+	// CMaterial_QueueFriendly::DecrementReferenceCount virtual-dispatches
+	// through `materials` to get the render call-queue; with that global NULL
+	// it dereferences address 0x0 and SIGSEGVs:
+	//
+	//   CRASH CMaterial_QueueFriendly::DecrementReferenceCount
+	//   [engine(+0x2ea288)] ShutdownMaterialSystem -> GL_UnloadMaterial
+	//   [libmaterialsystem 0x1b6e5a] mov (%rax),%rax  rax=0  fault addr 0x0
+	//
+	// Also guard against uninitialized material stubs (non-NULL object whose
+	// first word / vtable is zero). A null `materials` global means the
+	// system is gone and its materials are already being torn down, so there
+	// is nothing left to decrement; a real, live material always carries a
+	// vtable pointer, so that check cannot skip a legitimate release.
+	if ( pMaterial && *( const void ** )pMaterial && materials )
 	{
 		pMaterial->DecrementReferenceCount();
 	}

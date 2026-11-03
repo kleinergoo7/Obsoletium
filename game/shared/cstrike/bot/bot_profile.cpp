@@ -34,7 +34,10 @@ BotProfileManager *TheBotProfiles = NULL;
  */
 static const char * GetDecoratedSkinName( const char *name, const char *filename )
 {
-	const int BufLen = _MAX_PATH + 64;
+	// _MAX_PATH is the MSVC spelling; tier0/platform.h exposes the portable
+	// MAX_PATH for us. BufLen has to be a constant expression for the array
+	// bound, which it is only once the macro resolves.
+	constexpr int BufLen = MAX_PATH + 64;
 	static char buf[BufLen];
 	Q_snprintf( buf, sizeof( buf ), "%s/%s", filename, name );
 	return buf;

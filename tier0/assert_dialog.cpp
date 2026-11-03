@@ -32,7 +32,7 @@
 
 // We lazily load the SDL shared object, and only reference functions if it's
 // available, so this can be included on the dedicated server too.
-#include "include/SDL3/SDL.h"
+#include <SDL3/SDL.h>
 
 typedef int ( SDLCALL FUNC_SDL_ShowMessageBox )( const SDL_MessageBoxData *messageboxdata, int *buttonid );
 #endif
@@ -580,6 +580,19 @@ DBG_INTERFACE bool DoNewAssertDialog( const tchar *pFilename, int line, const tc
 	}
 
 #elif defined( POSIX )
+	// Headless dedicated-server port: SDL_ShowMessageBox down below blocked
+	// forever -- it hung the loader in wait4() while converting
+	//     ASSERT: .../public/dt_send.cpp:567: bufferLen <= DT_MAX_STRING_BUFFERSIZE
+	// (a stock latency: SendPropString over a char[MAX_PATH] member with
+	// MAX_PATH=4096 > 256) into a dead dialog with nobody at the screen. And
+	// even with an X display the default action ("Break"/"Corefile") dives into
+	// a debugger that is not attached. So the default keeps the assert gate
+	// CLOSED: the message is already buffered by the caller's Assert(...) and
+	// the run continues as a warning. Set SOURCE_ASSERT_DIALOG=1 to opt back
+	// into the GUI for interactive debugging.
+	if ( !getenv( "SOURCE_ASSERT_DIALOG" ) )
+		return false;
+
 	static FUNC_SDL_ShowMessageBox *pfnSDLShowMessageBox = NULL;
 	if( !pfnSDLShowMessageBox )
 	{

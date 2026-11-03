@@ -26,7 +26,10 @@
 // It is hoped that setting this, and using this library will be the common mechanism for
 // allowing link libraries to access tier2 library interfaces
 //-----------------------------------------------------------------------------
-IFileSystem *g_pFullFileSystem = nullptr;
+// g_pFullFileSystem moved to tier1/tier1.cpp: datamodel and dmserializers read it,
+// and tier2 reads g_pDmSerializers from dmserializers, so leaving it here made a
+// cycle of eagerly-bound data symbols (tier2 -> dmserializers -> datamodel ->
+// tier2) that no dlopen order can satisfy.
 IMaterialSystem *materials = nullptr;
 IMaterialSystem *g_pMaterialSystem = nullptr;
 IInputSystem *g_pInputSystem = nullptr;
@@ -64,7 +67,34 @@ T* ConnectLibrary( T **library,
 void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, intp nFactoryCount )
 {
 	// Don't connect twice..
-	Assert( !g_pFullFileSystem && 
+	//
+	// The check below is evaluated on the first call only. Every app system
+	// deriving from CTier2AppSystem calls this from its own Connect, and the
+	// dedicated server has three of them -- CMaterialSystem::Connect,
+	// CTier2AppSystem<IStudioRender>::Connect and
+	// CTier2AppSystem<IDataCache>::Connect -- so the call re-enters by design
+	// once the first system has connected, and a bare Assert() (or even
+	// AssertOnce, which still evaluates the expression on every call and
+	// reports the first false result) printed a bogus
+	//   Assertion Failed: !g_pMaterialSystem && !materials && ...
+	// for the second and subsequent callers. ConnectLibrary() early-returns on
+	// an already-set pointer, so repeat calls are idempotent and need no guard.
+	// Evaluating once still catches a global that was set before anything
+	// connected, which is the mistake the assert was written for. Upstream never
+	// trips any of this because Assert is a no-op unless _DEBUG is defined, and
+	// this port builds with _DEBUG.
+	//
+	// g_pFullFileSystem is deliberately not part of the check at all:
+	// main_posix preloads libfilesystem_stdio with RTLD_GLOBAL, and that
+	// module's global g_FileSystem_Stdio implicitly default-constructs its
+	// CBaseFileSystem base, whose constructor assigns g_pFullFileSystem (see
+	// filesystem/basefilesystem.cpp), so it is already non-null on the very
+	// first call.
+	static bool s_bTier2LibrariesConnected = false;
+	if (!s_bTier2LibrariesConnected)
+	{
+		s_bTier2LibrariesConnected = true;
+		Assert(
 		!g_pMaterialSystem && !materials &&
 		!g_pInputSystem &&
 		!g_pNetworkSystem && 
@@ -75,6 +105,7 @@ void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, intp nFactoryCount 
 		!colorcorrection && 
 		!mdllib && 
 		!g_pQueuedLoader );
+	}
 
 	for ( intp i = 0; i < nFactoryCount; ++i )
 	{

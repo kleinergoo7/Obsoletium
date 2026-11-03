@@ -21,7 +21,7 @@ namespace {
 bool IsDebuggerPresent(int time) {
   // Need to get around the __wrap_open() stuff. Just find the open symbol
   // directly and use it...
-  using open_func_t = int()(const char *pathname, int flags, mode_t mode);
+  using open_func_t = int(const char *pathname, int flags, mode_t mode);
   open_func_t *open_func = (open_func_t *)dlsym(RTLD_NEXT, "open");
 
   if (open_func) {
@@ -84,11 +84,11 @@ int main(int argc, char *argv[]) {
 
   using LauncherMainFunction = int (*)(int argc, char **argv);
 
-  const auto main =
+  const auto [launcherMain, launcherMainEc] =
       launcher_dll.GetFunction<LauncherMainFunction>("LauncherMain");
-  if (!main) {
+  if (!launcherMain) {
     fprintf(stderr, "Failed to get the launcher LauncherMain entry proc: %s.\n",
-            ::dlerror());
+            launcherMainEc ? launcherMainEc.message().c_str() : ::dlerror());
     return 2;
   }
 
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
   WaitForDebuggerConnect(argc, argv, 30);
 #endif
 
-  const auto rc = main(argc, argv);
+  const auto rc = launcherMain(argc, argv);
 
   // Prevent tail call optimization and incorrect stack traces.
   exit(rc);

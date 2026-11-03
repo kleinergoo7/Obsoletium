@@ -74,22 +74,40 @@ T* ConnectLibrary( T **library,
 void ConnectTier3Libraries( CreateInterfaceFn *pFactoryList, intp nFactoryCount )
 {
 	// Don't connect twice..
-	Assert(!g_pStudioRender && !studiorender &&
-		!g_pVGui &&
-		!g_pVGuiInput &&
-		!g_pVGuiPanel &&
-		!g_pVGuiSurface &&
-		!g_pVGuiSchemeManager &&
-		!g_pVGuiSystem &&
-		!g_pVGuiLocalize && 
-		!g_pMatSystemSurface &&
-		!g_pDataCache &&
-		!g_pMDLCache && !mdlcache &&
-		!g_pVideo &&
-		!g_pDmeMakefileUtils &&
-		!g_pPhysicsCollision &&
-		!g_pSoundEmitterSystem &&
-		!g_pVTex);
+	//
+	// Evaluated on the first call only, for the same reason as the equivalent
+	// guard in tier2.cpp: the two PreInit() overrides in
+	// public/appframework/tier3app.h both call ConnectTier3Libraries, and the
+	// dedicated server loads two CTier3AppSystem-derived systems -- studiorender
+	// and datacache -- so this re-enters by design once the first has connected.
+	// A bare Assert() therefore printed a bogus
+	//   Assertion Failed: !g_pStudioRender && !studiorender && ...
+	// for every caller after the first. ConnectLibrary() early-returns on an
+	// already-set pointer, so repeat calls are idempotent, while evaluating the
+	// check once still catches a global that was set before anything connected.
+	// Upstream never trips this because Assert is a no-op unless _DEBUG is
+	// defined, and this port builds with _DEBUG.
+	static bool s_bTier3LibrariesConnected = false;
+	if (!s_bTier3LibrariesConnected)
+	{
+		s_bTier3LibrariesConnected = true;
+		Assert(!g_pStudioRender && !studiorender &&
+			!g_pVGui &&
+			!g_pVGuiInput &&
+			!g_pVGuiPanel &&
+			!g_pVGuiSurface &&
+			!g_pVGuiSchemeManager &&
+			!g_pVGuiSystem &&
+			!g_pVGuiLocalize && 
+			!g_pMatSystemSurface &&
+			!g_pDataCache &&
+			!g_pMDLCache && !mdlcache &&
+			!g_pVideo &&
+			!g_pDmeMakefileUtils &&
+			!g_pPhysicsCollision &&
+			!g_pSoundEmitterSystem &&
+			!g_pVTex);
+	}
 
 	for ( intp i = 0; i < nFactoryCount; ++i )
 	{

@@ -41,7 +41,7 @@
 #include "sourcevr/isourcevirtualreality.h"
 
 #if defined( USE_SDL )
-#include "include/SDL3/SDL.h"
+#include <SDL3/SDL.h>
 #endif
 
 #include "materialsystem/itexture.h"
@@ -132,6 +132,13 @@ ConVar mat_depthbias_normal( "mat_depthbias_normal", "0.0", FCVAR_CHEAT );
 // This is here so that the client and the materialsystem can both see this.
 ConVar mat_show_ab_hdr( "mat_show_ab_hdr", "0" );
 
+// saverestore is created by host_saverestore.cpp, which engine.vpc lists as
+// [!$DEDICATED], so there is no save-game state on a server. This helper only
+// exists to clean up a client-side HDR mode switch and its sole call site is
+// already inside #ifndef SWDS, but the function body itself was compiled
+// unconditionally and left ISaverRestore::GetSaveDir() undefined in
+// libengine.so. Guard the definition with the same condition as the caller.
+#ifndef SWDS
 static void NukeModeSwitchSaveGames( void )
 {
 	char modeswitch[MAX_OSPATH];
@@ -151,6 +158,7 @@ static void NukeModeSwitchSaveGames( void )
 		g_pFileSystem->RemoveFile( modeswitch, "MOD" );
 	}
 }
+#endif // !SWDS
 
 void mat_hdr_level_Callback( IConVar *var, const char *pOldString, float flOldValue )
 {

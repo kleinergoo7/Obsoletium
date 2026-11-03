@@ -304,10 +304,10 @@ void CServerBrowser::Shutdown()
 	vgui::VGuiControls_Shutdown();
 #endif
 
-	DisconnectTier3Libraries();
-	DisconnectTier2Libraries();
-	ConVar_Unregister();
-	DisconnectTier1Libraries();
+	// Port-owned: see cdll_client_int.cpp — the tier1/2/3 globals and the
+	// convar registry are process-wide on Linux; tearing them down here
+	// would vandalize every module that outlives the server browser.
+	// They stay valid until launcher PostShutdown at process exit.
 }
 
 

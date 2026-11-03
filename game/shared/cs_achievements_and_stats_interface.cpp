@@ -31,6 +31,22 @@
 
 #if defined(CSTRIKE_DLL) && defined(CLIENT_DLL)
 
+// Port: defined here instead of the Steamworks SDK lib (NO_STEAM build).
+AchievementsAndStatsInterface *g_pAchievementsAndStatsInterface = nullptr;
+
+// Port: upstream calls this SDK/VGUI helper to place the stats dialog;
+// it is defined nowhere in this tree, so center the dialog on screen.
+static void PositionDialog( vgui::Frame *pDialog )
+{
+	if ( !pDialog )
+		return;
+	int sw = 0, sh = 0;
+	vgui::surface()->GetScreenSize( sw, sh );
+	int w = 0, h = 0;
+	pDialog->GetSize( w, h );
+	pDialog->SetPos( ( sw - w ) / 2, ( sh - h ) / 2 );
+}
+
 CSAchievementsAndStatsInterface::CSAchievementsAndStatsInterface() : AchievementsAndStatsInterface()
 {
     m_pAchievementAndStatsSummary = NULL;

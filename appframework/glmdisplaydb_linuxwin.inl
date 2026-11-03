@@ -534,17 +534,22 @@ void    GLMDisplayInfo::PopulateModes( void )
         Assert( !m_modes );
         m_modes = new CUtlVector< GLMDisplayMode* >;
 
-        int nummodes = SDL_GetNumVideoDisplays();
+        // Port: SDL3 removed SDL_GetNumVideoDisplays (int-indexed) for
+        // SDL_GetDisplays (ID-based); SDL_GetDisplayBounds now returns true
+        // on success (SDL2: 0 on success).
+        int numdisplays = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays( &numdisplays );
 
-        for ( int i = 0; i < nummodes; i++ )
+        for ( int i = 0; i < numdisplays; i++ )
         {
                 SDL_Rect rect = { 0, 0, 0, 0 };
 
-                if ( !SDL_GetDisplayBounds( i, &rect ) && rect.w && rect.h )
+                if ( SDL_GetDisplayBounds( displays[i], &rect ) && rect.w && rect.h )
                 {
                         m_modes->AddToTail( new GLMDisplayMode( rect.w, rect.h, 0 ) );
                 }
         }
+        SDL_free( displays );
 
         // Add a big pile of window resolutions.
         static const struct
@@ -606,7 +611,7 @@ void    GLMDisplayInfo::PopulateModes( void )
         m_modes->Sort( DisplayModeSortFunction );
 
         // remove dupes.
-        nummodes = m_modes->Count();
+        int nummodes = m_modes->Count();
         int i = 1;  // not zero!
         while (i < nummodes)
         {

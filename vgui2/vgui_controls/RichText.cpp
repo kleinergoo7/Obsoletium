@@ -1336,7 +1336,9 @@ void RichText::RecalculateLineBreaks()
 				if (renderState.textClickable)
 				{
 					// need to split the url into two panels
-					int oldIndex = _clickableTextPanels[clickableTextNum - 1]->GetTextIndex();
+					// clicks recalc can run before any click panel exists; -1 here is the port's
+					// GetClickableTextIndexStart() "none" value (vs. upstream Count()).
+					int oldIndex = clickableTextNum > 0 ? _clickableTextPanels[clickableTextNum - 1]->GetTextIndex() : i;
 					
 					// make a new clickable text panel
 					if (clickableTextNum >= _clickableTextPanels.Count())
@@ -1361,7 +1363,8 @@ void RichText::RecalculateLineBreaks()
 				if ( renderStateAtLastWord.textClickable && m_FormatStream[ renderStateAtLastWord.formatStreamIndex ].textStreamIndex < i )
 				{
 					// need to split the url into two panels
-					int oldIndex = _clickableTextPanels[clickableTextNum - 1]->GetTextIndex();
+					// see the line-break branch above: clickableTextNum may still be 0.
+					int oldIndex = clickableTextNum > 0 ? _clickableTextPanels[clickableTextNum - 1]->GetTextIndex() : i;
 
 					// make a new clickable text panel
 					if (clickableTextNum >= _clickableTextPanels.Count())

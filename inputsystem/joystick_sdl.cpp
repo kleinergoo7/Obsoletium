@@ -13,9 +13,9 @@
 #include "tier1/convar.h"
 #include "tier0/icommandline.h"
 
-#include "include/SDL3/SDL.h"
-#include "include/SDL3/SDL_gamepad.h"
-#include "include/SDL3/SDL_haptic.h"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_gamepad.h>
+#include <SDL3/SDL_haptic.h>
 
 // NOTE: This has to be the last file included!
 #include "tier0/memdbgon.h"

@@ -6054,7 +6054,7 @@ random_attrib_t	*CEconItemSchema::CreateRandomAttribute( const char *pszContext,
 				{
 					if ( pVecErrors )
 					{
-						pVecErrors->AddToTail( __FUNCTION__ ": error initializing line-item attribute from lootlist definition (possible attr template).\n" );
+						pVecErrors->AddToTail( "%s: error initializing line-item attribute from lootlist definition (possible attr template).\n", __FUNCTION__ );
 					}
 					return NULL;
 				}

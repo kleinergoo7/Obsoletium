@@ -86,7 +86,11 @@ static void* CreateInterfaceInternal( const char *pName, int *pReturnCode )
 	return nullptr;
 }
 
-void* CreateInterface( const char *pName, int *pReturnCode )
+// Port-owned: explicit default visibility on the definition, not just the
+// declaration. Game DLLs build with -fvisibility=hidden (their globals must
+// not interpose across client/server like Windows DLL isolation); without
+// this the factory itself is hidden and the engine cannot load the module.
+DLL_EXPORT void* CreateInterface( const char *pName, int *pReturnCode )
 {
     return CreateInterfaceInternal( pName, pReturnCode );
 }
@@ -223,7 +227,25 @@ static HMODULE Sys_LoadLibrary( const char *pLibraryName, Sys_Flags flags )
 	return context.m_hLibrary;
 
 #elif POSIX
-	int dlopen_mode = RTLD_NOW;
+	// RTLD_GLOBAL is required, not a preference, and for the same reason
+	// dedicated_main/main_posix.cpp uses it for the tier libraries: the engine
+	// modules form one flat symbol namespace and hand each other globals
+	// rather than calling through interfaces. The module table in
+	// dedicated/sys_linux.cpp loads engine first and materialsystem after it,
+	// and materialsystem resolves g_pHardwareConfig, which only libengine.so
+	// defines. With the default RTLD_LOCAL the engine is invisible to every
+	// later module, so the load of libmaterialsystem.so died at
+	//   libmaterialsystem.so: symbol lookup error
+	// and, because Sys_LoadLibrary() suppresses errors containing
+	// "No such file" and the debug-only "AppFramework: Unable to load module"
+	// warning is swallowed before the console exists, the server just exited
+	// 255 with no message.
+	//
+	// RTLD_NOW is kept: unlike the tier libraries, engine modules are loaded
+	// in dependency order, so every symbol is available at load time, and
+	// binding eagerly is what turns a missing dependency into a reportable
+	// error at the module that actually lacks it.
+	int dlopen_mode = RTLD_NOW | RTLD_GLOBAL;
 
 	if ( flags & SYS_NOLOAD )
 		dlopen_mode |= RTLD_NOLOAD;
@@ -292,6 +314,42 @@ CSysModule *Sys_LoadModule( const char *pModuleName, Sys_Flags flags /* = SYS_NO
 	{
 		// full path failed, let LoadLibrary() try to search the PATH now
 		hDLL = Sys_LoadLibrary( pModuleName, flags );
+
+#if defined( _LINUX ) || defined( __linux__ )
+		// ELF shared objects carry the toolchain's "lib" prefix (libengine.so,
+		// libmaterialsystem.so, ...), but the module table in
+		// dedicated/sys_linux.cpp names them with the Windows convention
+		// ("engine.so", "materialsystem.so", ...). Neither the <cwd>/bin/<name>
+		// probe above nor dlopen()'s search path can turn the latter into the
+		// former, so every AppSystemGroup::AddSystems() call failed with a bare
+		// dlopen() error -- and Sys_LoadLibrary() suppresses any error containing
+		// "No such file", which is exactly that one. The visible symptom was a
+		// silent exit 255 right after the version banner, with the debug-only
+		// "AppFramework: Unable to load module" warning swallowed because the
+		// console is not up yet. Retry using the name the linker actually wrote.
+		if ( !hDLL && !( flags & SYS_NOLOAD ) )
+		{
+			// Insert the prefix into the file name component only. The module
+			// name may already carry a directory -- IFileSystem::LoadModule()
+			// hands over "<search path>/engine.so" -- and blindly prefixing the
+			// whole string would ask the loader for "lib/home/.../engine.so".
+			char szPrefixedModuleName[ 1024 ];
+			const char *pFileName = strrchr( pModuleName, '/' );
+			if ( pFileName )
+			{
+				const intp nDirectoryLength = pFileName - pModuleName + 1;
+				V_strncpy( szPrefixedModuleName, pModuleName, nDirectoryLength + 1 );
+				Q_strncat( szPrefixedModuleName, "lib", sizeof( szPrefixedModuleName ) );
+				Q_strncat( szPrefixedModuleName, pFileName + 1, sizeof( szPrefixedModuleName ) );
+			}
+			else
+			{
+				Q_strncpy( szPrefixedModuleName, "lib", sizeof( szPrefixedModuleName ) );
+				Q_strncat( szPrefixedModuleName, pModuleName, sizeof( szPrefixedModuleName ) );
+			}
+			hDLL = Sys_LoadLibrary( szPrefixedModuleName, flags );
+		}
+#endif
 #if defined( _DEBUG )
 		if ( !hDLL )
 		{

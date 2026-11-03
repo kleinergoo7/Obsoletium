@@ -31,6 +31,8 @@
 #include <vgui_controls/ImageList.h>
 #include "vgui_avatarimage.h"
 
+using namespace vgui;
+
 #ifdef TF_CLIENT_DLL
 #include "ienginevgui.h"
 #include "tf_gcmessages.h"
@@ -1578,7 +1580,7 @@ void CHudVote::MsgFunc_VoteSetup( bf_read &msg )
 		int index = bMvM ? pStringTable->FindStringIndex( "ServerMapCycleMvM" ) : pStringTable->FindStringIndex( "ServerMapCycle" );
 		if ( index != ::INVALID_STRING_INDEX )
 		{
-			int nLength = 0;
+			intp nLength = 0;
 			const char *pszMapCycle = (const char *)pStringTable->GetStringUserData( index, &nLength );
 			if ( pszMapCycle && pszMapCycle[0] )
 			{
@@ -1603,7 +1605,7 @@ void CHudVote::MsgFunc_VoteSetup( bf_read &msg )
 		int index = g_pStringTableServerPopFiles->FindStringIndex( "ServerPopFiles" );
 		if ( index != ::INVALID_STRING_INDEX )
 		{
-			int nLength = 0;
+			intp nLength = 0;
 			const char *pszPopFiles = (const char *)g_pStringTableServerPopFiles->GetStringUserData( index, &nLength );
 			if ( pszPopFiles && pszPopFiles[0] )
 			{

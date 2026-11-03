@@ -65,7 +65,27 @@ $Project "server (CStrike)"
 			$File	"$SRCDIR\game\shared\cstrike\cs_gamestats_shared.cpp"
 			$File	"$SRCDIR\game\shared\cstrike\cs_gamestats_shared.h"
 			$File	"$SRCDIR\game\shared\steamworks_gamestats.cpp"
-			$File	"$SRCDIR\game\shared\steamworks_gamestats.h"			
+			$File	"$SRCDIR\game\shared\steamworks_gamestats.h"
+			// Trailing SteamWorks data symbols (flat-API globals/functions plus
+			// the CSteamWorksGameStatsUploader vtable). This must only be
+			// compiled into DLLs that ALSO compile steamworks_gamestats.cpp:
+			// the emitted vtable references Init()/FireGameEvent()/
+			// LevelShutdown(), and leaving them undefined in any other module
+			// killed it at dlopen with
+			//     undefined symbol: _ZTV28CSteamWorksGameStatsUploader
+			// in a fresh link -- as did dumping the file into source_dll_posix_
+			// _base.vpc, which leaked it into ~90 modules. So it is co-located
+			// with the one consumer that can bound those virtuals.
+			$File	"$SRCDIR\public\steam\steam_nosteam_stubs.cpp" [$NO_STEAM]
+			{
+				$Configuration
+				{
+					$Compiler
+					{
+						$Create/UsePrecompiledHeader	"Not Using Precompiled Headers"
+					}
+				}
+			}			
 			$File	"cstrike\cs_hltvdirector.cpp"
 			$File	"cstrike\cs_player.cpp"
 			$File	"cstrike\cs_player.h"

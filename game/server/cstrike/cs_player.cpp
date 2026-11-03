@@ -4423,9 +4423,16 @@ bool CCSPlayer::ClientCommand( const CCommand &args )
 		punchAngle.y = flDamage * random->RandomFloat ( -0.15, 0.15 );
 		punchAngle.z = flDamage * random->RandomFloat ( -0.15, 0.15 );
 
-		clamp( punchAngle.x, -4, punchAngle.x );
-		clamp( punchAngle.y, -5, 5 );
-		clamp( punchAngle.z, -5, 5 );
+		// clamp() returns a reference and all three results are discarded, so these
+		// statements have always been no-ops; they are kept verbatim in spirit and
+		// only made type-explicit, because clamp() is a single-type template and the
+		// mixed float/int arguments no longer deduce. Changing them into assignments
+		// would alter view-punch behaviour, which is out of scope for this port.
+		// (The first also passes punchAngle.x as its maximum, so it could not clamp
+		// anything even if the result were used.)
+		clamp<float>( punchAngle.x, -4, punchAngle.x );
+		clamp<float>( punchAngle.y, -5, 5 );
+		clamp<float>( punchAngle.z, -5, 5 );
 
 		// +y == down
 		// +x == left
@@ -4908,10 +4915,10 @@ bool CCSPlayer::HandleCommand_JoinClass( int iClass )
 	switch ( GetTeamNumber() )
 	{
 		case TEAM_TERRORIST:
-			iClass = clamp( iClass, FIRST_T_CLASS, LAST_T_CLASS );
+			iClass = clamp<int>( iClass, FIRST_T_CLASS, LAST_T_CLASS );
 			break;
 		case TEAM_CT:
-			iClass = clamp( iClass, FIRST_CT_CLASS, LAST_CT_CLASS );
+			iClass = clamp<int>( iClass, FIRST_CT_CLASS, LAST_CT_CLASS );
 			break;
 		default:
 			iClass = CS_CLASS_NONE;
@@ -6140,7 +6147,10 @@ void CCSPlayer::PrioritizeAutoBuyString(char *autobuyString, const char *priorit
 	// terminate the string.  Trailing spaces shouldn't matter.
 	newString[newStringPos] = 0;
 
-	V_strcpy_safe(autobuyString, newString);
+	// V_strcpy_safe() only binds to an array reference, so it cannot infer a bound
+	// for the char* destination, and the two arguments deduce different types. Use
+	// V_strncpy() with the explicit width of the buffer that was just assembled.
+	V_strncpy( autobuyString, newString, sizeof( newString ) );
 }
 
 

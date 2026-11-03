@@ -36,9 +36,15 @@
 
 #include "scoped_app_locale.h"
 
-extern CTextConsoleUnix console;
-
 namespace se::dedicated {
+
+// Defined in sys_ded.cpp, which also opens this namespace for the definition.
+// The extern has to be declared here rather than as a qualified
+// "extern se::dedicated::CTextConsoleUnix console;" at global scope: that form
+// does not register a member, so every console.Print()/console.GetLine() below
+// silently bound to some other, global "console" instead and left libdedicated.so
+// with an undefined, unmangled "console" symbol.
+extern CTextConsoleUnix console;
 
 // Loose implementation for operating system specific layer.
 class UnixSystem : public ISystem {
@@ -64,8 +70,8 @@ UnixSystem::~UnixSystem() = default;
 
 void UnixSystem::ErrorMessage(int level, const char *msg) {
   Error("%s\n", msg);
-  // dimhotepus: 1 -> EOTHER.
-  exit(EOTHER);
+  // POSIX has no EOTHER; EIO is the closest generic equivalent.
+  exit(EIO);
 }
 
 void UnixSystem::UpdateStatus(int force) {}
@@ -155,5 +161,5 @@ DLL_EXPORT int DedicatedMain(int argc, char *argv[]) {
   }
 
   se::dedicated::UnixSystem system;
-  return se::dedicated::BootMain(argc, argv, &system);
+  return se::dedicated::BootMain(argc, argv, /*is_console_mode=*/true, &system);
 }

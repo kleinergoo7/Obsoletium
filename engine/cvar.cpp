@@ -126,7 +126,11 @@ public:
 
 	virtual void Shutdown()
 	{
-		g_pCVar->RemoveGlobalChangeCallback( ConVarNetworkChangeCallback );
+		// Guarded: the dedicated server can tear down CCvar (and thus tier1's
+		// g_pCVar, see CCvar::Disconnect -> DisconnectTier1Libraries) before
+		// this engine shutdown runs; dereferencing the null ICvar would crash.
+		if ( g_pCVar )
+			g_pCVar->RemoveGlobalChangeCallback( ConVarNetworkChangeCallback );
 	}
 
 	virtual void *QueryInterface( const char *pInterfaceName )

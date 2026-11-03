@@ -40,13 +40,13 @@ $Project "tier2"
 		$File	"keyvaluesmacros.cpp"
 	}
 
-	$Folder	"Public Header Files"
+$Folder	"Public Header Files"
 	{
 		$File	"$SRCDIR\public\tier2\beamsegdraw.h"
 		$File	"$SRCDIR\public\tier2\fileutils.h"
 		$File	"$SRCDIR\public\tier2\camerautils.h"
-		$File	"$SRCDIR\public\tier2\meshutils.h"
 		$File	"$SRCDIR\public\tier2\keybindings.h"
+		$File	"$SRCDIR\public\tier2\meshutils.h"
 		$File	"$SRCDIR\public\tier2\renderutils.h"
 		$File	"$SRCDIR\public\tier2\riff.h"
 		$File	"$SRCDIR\public\tier2\soundutils.h"
@@ -55,4 +55,20 @@ $Project "tier2"
 		$File	"$SRCDIR\public\tier2\vconfig.h"
 		$File	"$SRCDIR\public\tier2\keyvaluesmacros.h"
 	}
+
+	// Linux port: tier2/datamodel.cpp and dmconnect.cpp reference the DataModel
+	// globals g_pDataModel / g_pDmElementFramework and g_pDmSerializers, but
+	// tier2.vpc lists no link libraries anywhere, so the generated module was
+	// left without the edges and the game DLL load failed with:
+	//   libserver_CStrike.so: undefined symbol: g_pDataModel
+	//   libserver_CStrike.so: undefined symbol: g_pDmElementFramework
+	//   libserver_CStrike.so: undefined symbol: g_pDmSerializers
+	// The symbols live in game/datamodel (libdatamodel) and datamodel/dmserializers
+	// (libdmserializers); neither lists tier2, so there is no cycle.
+	$Folder "Link Libraries" [$LINUXALL]
+	{
+		$Lib datamodel
+		$Lib dmserializers
+	}
+}
 }

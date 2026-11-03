@@ -190,5 +190,9 @@ void Memory_Shutdown()
 	g_HunkMemoryStack.FreeAll();
 
 	// This disconnects the engine data cache
-	g_pDataCache->SetSize( 0 );
+	// Guarded: a dedicated server can shut the engine down after the data
+	// cache module was already disconnected (g_pDataCache null); the call
+	// would crash on the null ICache (mov (%rax),%rax, fault addr 0x0).
+	if ( g_pDataCache )
+		g_pDataCache->SetSize( 0 );
 }
