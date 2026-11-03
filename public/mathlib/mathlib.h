@@ -102,10 +102,10 @@ private:
 //
 // Returns a clamped value in the range [min, max].
 //
-template<typename T>
-[[nodiscard]] inline T clamp( T val, T minVal, T maxVal )
+template<typename T, typename U, typename V>
+[[nodiscard]] inline T clamp( T val, U minVal, V maxVal )
 {
-	return std::clamp( val, minVal, maxVal );
+	return std::clamp( val, (T)minVal, (T)maxVal );
 }
 
 

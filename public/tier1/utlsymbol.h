@@ -272,6 +272,10 @@ class CUtlFilenameSymbolTable
 public:
 	CUtlFilenameSymbolTable();
 	~CUtlFilenameSymbolTable();
+	// The table owns a raw HashTable pointer, so a copy would leave two objects
+	// freeing the same allocation. Nothing copies it, so forbid it outright.
+	CUtlFilenameSymbolTable( const CUtlFilenameSymbolTable & ) = delete;
+	CUtlFilenameSymbolTable &operator=( const CUtlFilenameSymbolTable & ) = delete;
 	FileNameHandle_t	FindOrAddFileName( const char *pFileName );
 	FileNameHandle_t	FindFileName( const char *pFileName );
 	intp				PathIndex(const FileNameHandle_t &handle) { return (( const FileNameHandleInternal_t * )&handle)->path; }

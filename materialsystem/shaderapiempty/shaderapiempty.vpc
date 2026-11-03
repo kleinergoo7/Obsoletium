@@ -13,7 +13,13 @@ $Configuration
 {
 	$Compiler
 	{
-		$AdditionalIncludeDirectories		"$BASE;..\"
+		// "..\" is a Windows relative path that the generator does not
+		// translate, so shaderapiempty.cpp's bare includes of
+		// IHardwareConfigInternal.h and shadersystem.h (both in materialsystem/)
+		// were unresolvable. The dedicated server loads this module at runtime
+		// through CMaterialSystem::SetShaderAPI("shaderapiempty"), so spell the
+		// module directory out. Same fix as materialsystem/shaderlib.
+		$AdditionalIncludeDirectories		"$BASE;..\;$SRCDIR\materialsystem"
 		$PreprocessorDefinitions			"$BASE;SHADER_DLL_EXPORT;PROTECTED_THINGS_ENABLE"
 	}
 

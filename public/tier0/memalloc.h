@@ -28,6 +28,11 @@
 #include <malloc/malloc.h>
 #endif
 
+// PLATFORM_INTERFACE / PLATFORM_CLASS are defined by platform.h and are used
+// further down (CMemAlignN, CMemAlignN16, ...). On Windows every including
+// translation unit happened to have platform.h already; memalloc.h must be
+// self-contained.
+#include "platform.h"
 #include "mem.h"
 
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)

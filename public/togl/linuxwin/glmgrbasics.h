@@ -33,7 +33,9 @@
 #pragma once
 
 #ifdef USE_SDL
-#include "SDL_opengl.h"
+// Port: SDL3 layout (<SDL3/...>); the SDL2 form only resolved via the
+// vendored snapshot, which this port no longer uses.
+#include <SDL3/SDL_opengl.h>
 #endif
 
 #ifdef OSX

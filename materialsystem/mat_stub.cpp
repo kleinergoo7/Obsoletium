@@ -2327,6 +2327,11 @@ public:
 		return false;
 	}
 
+	virtual int GetShaderAPIKind() const override
+	{
+		return 3;
+	}
+
 	virtual bool VerifyTextureCompositorTemplates() override
 	{
 		return false;	

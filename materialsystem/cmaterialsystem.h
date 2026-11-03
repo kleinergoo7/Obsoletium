@@ -485,6 +485,7 @@ public:
 	virtual ITexture*			CreateNamedTextureFromBitsEx( const char* pName, const char *pTextureGroupName, int w, int h, int mips, ImageFormat fmt, int srcBufferSize, byte* srcBits, int nFlags ) override;
 
 	virtual bool				AddTextureCompositorTemplate( const char* pName, KeyValues* pTmplDesc, int nTexCompositeTemplateFlags = 0 ) override;
+	virtual int				GetShaderAPIKind() const override;
 	virtual bool				VerifyTextureCompositorTemplates() override;
 
 

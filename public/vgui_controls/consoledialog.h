@@ -132,6 +132,9 @@ protected:
 	char m_szPreviousPartialText[256];
 	bool m_bAutoCompleteMode;	// true if the user is currently tabbing through completion options
 	bool m_bStatusVersion;
+	// Port-owned: byte count inserted into the history buffer (see
+	// CConsolePanel::ColorPrint cap).
+	intp m_nHistoryBytes = 0;
 
 	CUtlVector< CompletionItem * > m_CompletionList;
 	CUtlVector< CHistoryItem >	m_CommandHistory;

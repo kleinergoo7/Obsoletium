@@ -109,7 +109,9 @@ inline void ComputeVertexDesc( unsigned char * pBuffer, VertexFormat_t vertexFor
 	int i;
 	int *pVertexSizesToSet[32];
 	int nVertexSizesToSet = 0;
-	static alignas(float) ModelVertexDX8_t temp[4];
+	// Attribute before the storage class: GCC 15 rejects alignas after
+	// static ("standard attribute in middle of declarators").
+	alignas(float) static ModelVertexDX8_t temp[4];
 	float *dummyData = (float*)&temp; // should be larger than any CMeshBuilder command can set.
 
 	// Determine which vertex compression type this format specifies (affects element sizes/decls):

@@ -2360,7 +2360,13 @@ void CMaterial::Uncache( bool bPreserveVars )
 	{
 		char szName[ MAX_PATH ];
 		V_sprintf_safe( szName, "materials/%s.vmt", GetName() );
-		g_pFullFileSystem->NotifyFileUnloaded( szName, "GAME" );
+		// Guarded: a dedicated server can still be uncaching materials after
+		// the filesystem module already disconnected (its global
+		// g_pFullFileSystem nulled), so this notify would SIGSEGV
+		// (CMaterial::Uncache, libmaterialsystem+0x1ad7cd, fault addr 0x0).
+		// The pure-system notification is a no-op then anyway.
+		if ( g_pFullFileSystem )
+			g_pFullFileSystem->NotifyFileUnloaded( szName, "GAME" );
 	}
 }
 

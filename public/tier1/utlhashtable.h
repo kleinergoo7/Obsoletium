@@ -107,12 +107,18 @@ public:
 	enum : storage_t
 	{
 		// must be high bit for IsValid and IdealIndex to work
+		//
+		// storage_t is deliberately *signed*: IsValid() tests ">= 0" and
+		// IdealIndex() arithmetic-shifts by 63 to produce an all-ones index.
+		// That makes 0x8000000000000000 unrepresentable as an enumerator, so
+		// spell the same bit pattern as the signed minimum of whichever width is
+		// in use -- 0x80000000/0x8000 are out of range for signed int32/int16.
 		FLAG_FREE =
 #ifdef PLATFORM_64BITS
-			INT64_STORAGE ? 0x8000000000000000 :
+			INT64_STORAGE ? INT64_MIN :
 #endif
-				(INT32_STORAGE ? 0x80000000 :
-					(INT16_STORAGE ? 0x8000 : -1)),
+				(INT32_STORAGE ? INT32_MIN :
+					(INT16_STORAGE ? INT16_MIN : -1)),
 		FLAG_LAST =
 #ifdef PLATFORM_64BITS
 			INT64_STORAGE ? 0x4000000000000000 :

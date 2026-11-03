@@ -75,6 +75,16 @@ CMaterialSystem g_MaterialSystem;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CMaterialSystem, IMaterialSystem, 
 						MATERIAL_SYSTEM_INTERFACE_VERSION, g_MaterialSystem );
 
+// The CS:S 2024 shader model (stdshader_dx9.so) is prebuilt and asks the
+// engine for "VMaterialSystem082" by that name. Its IMaterialSystem vtable
+// is this tree's plus GetShaderAPIKind() (see imaterialsystem.h), so the
+// same object answers to both names.
+static void *CreateMaterialSystem082()
+{
+	return static_cast<IMaterialSystem *>( &g_MaterialSystem );
+}
+EXPOSE_INTERFACE_FN( CreateMaterialSystem082, IMaterialSystem, "VMaterialSystem082" );
+
 // Expose this to the external shader DLLs
 MaterialSystem_Config_t g_config;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( MaterialSystem_Config_t, MaterialSystem_Config_t, MATERIALSYSTEM_CONFIG_VERSION, g_config );
@@ -4175,6 +4185,18 @@ bool CMaterialSystem::AddTextureCompositorTemplate( const char* pName, KeyValues
 {
 	// Flags are currently unused, but added for futureproofing.
 	return TextureManager()->AddTextureCompositorTemplate( pName, pTmplDesc );
+}
+
+int CMaterialSystem::GetShaderAPIKind() const
+{
+	// The CS:S 2024 shader model reads this to tell which API it is running
+	// on: 1 = DX9, 2 = GL, 3 = anything else. This port is the Vulkan
+	// backend, so 3 unless the engine was told otherwise.
+	if ( CommandLine()->ParmValue( "-gl" ) )
+		return 2;
+	if ( CommandLine()->ParmValue( "-dx9" ) )
+		return 1;
+	return 3;
 }
 
 bool CMaterialSystem::VerifyTextureCompositorTemplates()

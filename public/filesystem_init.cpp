@@ -396,6 +396,7 @@ static bool FileSystem_GetBaseDir( OUT_Z_ARRAY char (&baseDir)[max_size] )
 template<size_t size>
 static bool LaunchVConfig(OUT_Z_ARRAY char (&vconfigExe)[size])
 {
+#ifdef _WIN32
 	if ( !FileSystem_GetExecutableDir( vconfigExe ) )
 		return false;
 
@@ -410,6 +411,13 @@ static bool LaunchVConfig(OUT_Z_ARRAY char (&vconfigExe)[size])
 	};
 
 	return _spawnv( _P_NOWAIT, vconfigExe, argv ) != -1;
+#else
+	// vconfig.exe is a Windows-only helper that has no native counterpart on
+	// this platform; the caller already handles a failed launch by reporting the
+	// failure and aborting initialization.
+	(void)size;
+	return false;
+#endif
 }
 
 const char* GetVProjectCmdLineValue()
@@ -1034,6 +1042,9 @@ FSReturnCode_t FileSystem_SetupSteamEnvironment( CFSSteamSetupInfo &fsInfo )
 		? FS_OK
 		: SetupFileSystemError( false, FS_UNABLE_TO_INIT, "Unable to set env variable %s: %s.", pEnvBuf, strerror(errno) );
 #else
+	char pEnvBuf[MAX_PATH+32];
+	V_snprintf( pEnvBuf, sizeof( pEnvBuf ), "%s=%s", GAMEDIR_TOKEN, fsInfo.m_GameInfoPath );
+
 	return !setenv( GAMEDIR_TOKEN, fsInfo.m_GameInfoPath, 1 )
 		? FS_OK
 		: SetupFileSystemError( false, FS_UNABLE_TO_INIT, "Unable to set env variable %s: %s.", pEnvBuf, strerror(errno) );

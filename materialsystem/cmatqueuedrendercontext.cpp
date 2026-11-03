@@ -353,7 +353,10 @@ public:
 			{
 				#define FindMin( desc, pCurrent, tag )	( ( desc.m_VertexSize_##tag != 0 ) ? min( pCurrent, (void *)desc.m_p##tag )  : pCurrent )
 
-				pDest = (void *)MAXSIZE_T;
+				// MAXSIZE_T is an MSVC macro. (size_t)-1 is the same value, and what this
+				// wants: the highest address, so the following FindMin() reductions
+				// narrow it down to the lowest real field.
+				pDest = (void *)(size_t)-1;
 
 				pDest = FindMin( desc, pDest, BoneWeight );
 				pDest = FindMin( desc, pDest, BoneMatrixIndex );
@@ -1030,10 +1033,16 @@ void CMatQueuedRenderContext::GetFogDistances( float *fStart, float *fEnd, float
 //-----------------------------------------------------------------------------
 void CMatQueuedRenderContext::GetViewport( int& x, int& y, int& width, int& height ) const
 {
-	// Verify valid top of RT stack
-	Assert ( m_RenderTargetStack.Count() > 0 );
+	// Verify valid top of RT stack. See CMatRenderContext::GetViewport.
+	if ( m_RenderTargetStack.Count() == 0 )
+	{
+		Assert( 0 );
+		x = y = 0;
+		width = m_WidthBackBuffer;
+		height = m_HeightBackBuffer;
+		return;
+	}
 
-	// Grab the top of stack
 	const RenderTargetStackElement_t& element = m_RenderTargetStack.Top();
 
 	// If either dimension is negative, set to full bounds of current target

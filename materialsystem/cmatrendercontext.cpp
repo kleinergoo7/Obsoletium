@@ -287,6 +287,7 @@ void CMatRenderContextBase::Bind( IMaterial *iMaterial, void *proxyData )
 	{
 		if( !material->IsPrecached() )
 		{
+			material->Precache();
 			DevWarning( "Binding uncached material \"%s\", artificially incrementing refcount\n", material->GetName() );
 			material->ArtificialAddRef();
 			material->Precache();
@@ -2284,10 +2285,18 @@ void CMatRenderContext::Viewport( int x, int y, int width, int height )
 
 void CMatRenderContext::GetViewport( int& x, int& y, int& width, int& height ) const
 {
-	// Verify valid top of RT stack
-	Assert ( m_RenderTargetStack.Count() > 0 );
+	// Verify valid top of RT stack. The queued render context copies this
+	// stack from the hardware context at BeginQueue time; if it ends up
+	// empty (e.g. a frame that never pushed a render target), fall back to
+	// the full back buffer instead of reading garbage.
+	if ( m_RenderTargetStack.Count() == 0 )
+	{
+		Assert( 0 );
+		x = y = 0;
+		g_pShaderAPI->GetBackBufferDimensions( width, height );
+		return;
+	}
 
-	// Grab the top of stack
 	const RenderTargetStackElement_t& element = m_RenderTargetStack.Top();
 
 	// If either dimension is not positive, set to full bounds of current target

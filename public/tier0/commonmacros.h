@@ -351,8 +351,14 @@ inline
 #define RTL_NUMBER_OF_V0(A) (sizeof(A) / sizeof((A)[0]))
 #endif
 
+// The template-based definition below only misbehaves on pre-VS2010-SP1 MSVC,
+// hence the original _MSC_FULL_VER gate. That macro is MSVC-only, so on GCC and
+// Clang the test was always false and control fell through to the
+// RTL_NUMBER_OF_V1 spelling from winnt.h, which does not exist off Windows --
+// making every ARRAYSIZE() in the tree a hard error. Accept any non-MSVC
+// compiler here, and keep the version test only for MSVC.
 #if defined(__cplusplus) && !defined(MIDL_PASS) && !defined(RC_INVOKED) && \
-    (_MSC_FULL_VER >= 13009466) && !defined(SORTPP_PASS)
+    (!defined(_MSC_VER) || _MSC_FULL_VER >= 13009466) && !defined(SORTPP_PASS)
 
 // From crtdefs.h
 #if !defined(UNALIGNED)
@@ -634,6 +640,21 @@ BitwiseClear(T* src, size_t size) noexcept {
  */
 #define MSVC_END_WARNING_OVERRIDE_SCOPE() __pragma(warning(pop))
 
+#else  // !COMPILER_MSVC
+
+/*
+ * These only ever suppressed MSVC C4251 ("class needs to have dll-interface"),
+ * which GCC and Clang do not diagnose. threadtools.h nevertheless uses them
+ * unconditionally (CThreadRWLock's members), so on non-MSVC compilers they are
+ * no-ops rather than undefined -- which would otherwise be a hard error
+ * wherever they appear.
+ */
+#define MSVC_BEGIN_WARNING_OVERRIDE_SCOPE()
+#define MSVC_DISABLE_WARNING(warning_level)
+#define MSVC_END_WARNING_OVERRIDE_SCOPE()
+
+#endif  // !COMPILER_MSVC
+
 /*
  * @brief Disable MSVC warning for code.
  */
@@ -641,7 +662,6 @@ BitwiseClear(T* src, size_t size) noexcept {
   MSVC_BEGIN_WARNING_OVERRIDE_SCOPE()                    \
   MSVC_DISABLE_WARNING(warning_level)                    \
   code MSVC_END_WARNING_OVERRIDE_SCOPE()
-#endif
 
 #if defined(__clang__) || defined(__GCC__)
 /*

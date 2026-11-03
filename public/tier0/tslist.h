@@ -34,7 +34,10 @@ inline bool ThreadInterlockedAssignIf128( int128 volatile * pDest, const int128 
 	// We do not want the original comparand modified by the swap
 	// so operate on a local copy.
 	int128 local_comparand = comparand;
-	return __sync_bool_compare_and_swap( pDest, local_comparand, value );
+	// Same as __sync_bool_compare_and_swap, which gcc 16 no longer links for
+	// 16-byte operands (libatomic dropped the __sync_*_16 aliases).
+	return __atomic_compare_exchange_n( pDest, &local_comparand, value, false,
+	                                    __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST );
 }
 #endif
 

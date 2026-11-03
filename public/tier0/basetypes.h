@@ -5,6 +5,7 @@
 
 #include "commonmacros.h"
 #include "wchartypes.h"
+#include "annotations.h"
 
 #include <cstdint>
 #include <cstddef>  // std::ptrdiff_t

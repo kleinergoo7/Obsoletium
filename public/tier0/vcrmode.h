@@ -22,7 +22,7 @@
 using socket_handle = uintp;
 constexpr inline socket_handle kInvalidSocketHandle = static_cast<socket_handle>(~0);
 #else
-usign socket_handle = int;
+using socket_handle = int;
 constexpr inline socket_handle kInvalidSocketHandle = -1;
 #endif
 
@@ -65,11 +65,18 @@ enum VCRMode_t
 };
 
 // dimhotepus: Backport from TF2. Was unsigned long.
-//#ifdef PLATFORM_64BITS
-//using VCRThreadId_t = uint64;
-//#else
+//
+// This is the VC-runtime shim's mirror of ThreadId_t, and it is passed straight
+// to CreateSimpleThread(..., ThreadId_t *pID, ...) by
+// _beginthreadex() in tier0/vcrmode_posix.cpp. It therefore has to be pointer
+// sized on LP64 for the same reason ThreadId_t does, otherwise the shim stops
+// compiling once ThreadId_t is 64-bit ("no matching function for call to
+// CreateSimpleThread(..., VCRThreadId_t *&, int)").
+#if defined( PLATFORM_64BITS ) && !defined( _WIN32 )
+using VCRThreadId_t = uint64;
+#else
 using VCRThreadId_t = uint32;
-//#endif
+#endif
 
 //-----------------------------------------------------------------------------
 // Functions.

@@ -300,7 +300,12 @@ public:
 	explicit CNumStr( int64 n64 )	{ SetInt64( n64 ); }
 	explicit CNumStr( uint64 un64 )	{ SetUint64( un64 ); }
 
-#if defined(COMPILER_GCC) && defined(PLATFORM_64BITS)
+#if defined(_WIN32) && defined(PLATFORM_64BITS)
+	// These extra overloads exist to disambiguate from the int64/uint64 ones
+	// above. On Windows int64 is __int64 while lint64 is a distinct 'long', so
+	// the spellings differ. On LP64 targets both are 'long' and the overloads
+	// would be redeclarations, and on 32-bit non-Windows int64 is 'long long'
+	// and convertible without ambiguity -- so this is a Windows-only need.
 	explicit CNumStr( lint64 n64 )		{ SetInt64( (int64)n64 ); }
 	explicit CNumStr( ulint64 un64 )	{ SetUint64( (uint64)un64 ); }
 #endif

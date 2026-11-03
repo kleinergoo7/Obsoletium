@@ -63,4 +63,77 @@
 
 #endif // _MSC_VER >= 1600 // VS 2010 and above.
 
+#if !defined(_MSC_VER)
+//-----------------------------------------------------------------------------
+// GCC / Clang.
+//
+// Everything above is static-analysis contract metadata for MSVC's /analyze
+// and the Windows SDK's sal.h. None of it has runtime meaning, and GCC/Clang
+// have no /analyze, so the correct Linux translation is "expand to nothing" --
+// which keeps every annotated declaration syntactically valid.
+//
+// This branch is required, not optional: public/ headers use these names
+// unconditionally (e.g. dbg.h's _SpewMessage takes PRINTF_FORMAT_STRING,
+// strings.h uses IN_Z/OUT_Z_BYTECAP, and ISteam*, IFileSystem,
+// VGUI's DrawColoredText and many more all appear in public interfaces that
+// tier0 includes). Without it tier0 does not compile on GCC at all.
+//
+// Format checking is not lost: platform.h's FMTFUNCTION maps to
+// __attribute__((format(printf, ...))) for GCC/Clang, so GCC still validates
+// the format string; only the redundant per-parameter tag is dropped.
+//-----------------------------------------------------------------------------
+
+// For temporarily suppressing warnings -- the warnings are suppressed for the next source line.
+#define ANALYZE_SUPPRESS(wnum)
+#define ANALYZE_SUPPRESS2(wnum1, wnum2)
+#define ANALYZE_SUPPRESS3(wnum1, wnum2, wnum3)
+#define ANALYZE_SUPPRESS4(wnum1, wnum2, wnum3, wnum4)
+
+// Some headers (common/posix_file_stream.h, tier0/memoverride.cpp,
+// public/tier0/basetypes.h) use the raw _In_z_/_Out_writes_z_ spellings
+// directly rather than the IN_Z/OUT_BYTECAP wrappers above. MSVC gets those
+// from the SDK's sal.h; on other compilers the port provides an equivalent
+// shim on the include path, which expands each annotation to nothing.
+#include <sal.h>
+
+// Tag all printf/scanf style format strings with this
+#define PRINTF_FORMAT_STRING
+#define SCANF_FORMAT_STRING
+// Various macros for specifying the capacity of the buffer pointed
+// to by a function parameter. Variations include in/out/inout,
+// CAP (elements) versus BYTECAP (bytes), and null termination or
+// not (_Z).
+#define IN_Z
+#define IN_OPT
+#define IN_OPT_Z
+#define IN_CAP(x)
+#define IN_CAP_OPT(x)
+#define IN_Z_CAP(x)
+#define IN_Z_CAP_C(x)
+#define IN_BYTECAP(x)
+#define OUT_Z_CAP(x)
+#define OUT_Z_CAP_OPT(x)
+#define OUT_CAP(x)
+#define OUT_CAP_OPT(x)
+#define OUT_CAP_C(x)
+#define OUT_BYTECAP(x)
+#define OUT_BYTECAP_C(x)
+#define OUT_OPT_BYTECAP(x)
+#define OUT_Z_BYTECAP(x)
+#define INOUT_BYTECAP(x)
+#define INOUT_Z
+#define INOUT_Z_CAP(x)
+#define INOUT_Z_BYTECAP(x)
+// dimhotepus: Add return may be null annotation.
+#define RET_MAY_BE_NULL
+// These macros are use for annotating array reference parameters, typically used in functions
+// such as V_strcpy_safe. Because they are array references the capacity is already known.
+#define IN_Z_ARRAY
+#define OUT_Z_ARRAY
+#define INOUT_Z_ARRAY
+// Used for annotating functions to describe their return types.
+#define MUST_CHECK_RETURN
+
+#endif // !defined(_MSC_VER)
+
 #endif // !SE_PUBLIC_TIER0_ANNOTATIONS_H_

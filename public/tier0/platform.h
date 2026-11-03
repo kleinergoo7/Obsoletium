@@ -29,9 +29,11 @@
 #include <new>
 
 #include <cstring>  // std::memset
-#include <cstddef>  // std::size
+#include <cstddef>  // std::size_t
+#include <iterator>  // std::size, std::begin, std::end
+#include <algorithm>  // std::nth_element
 
-#if defined(__GCC__) && (defined(__i386__) || defined(__x86_64__))
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
 #include <x86intrin.h>  // __rdtsc, __rdtscp
 #endif
 
@@ -213,12 +215,20 @@ using uint = unsigned int;
 #else
 typedef unsigned int DWORD;
 #endif
+typedef unsigned char BYTE;
 typedef unsigned short WORD;
 typedef void * HINSTANCE;
 #define MAX_PATH PATH_MAX
 #define __cdecl
 #define __stdcall
 #define __declspec
+// MSVC spells the same limit _MAX_PATH, and 48 uses of it survive across the
+// game and client trees (game/server/AI_ResponseSystem.cpp, slideshow_display.cpp
+// and the cstrike/TF VGUI pages all declare buffers with it). MSVC defines it as
+// MAX_PATH, so mirror that rather than editing 41 files.
+#ifndef _MAX_PATH
+#define _MAX_PATH MAX_PATH
+#endif
 
 #endif // defined(_WIN32) && !defined(WINDED)
 
@@ -395,7 +405,15 @@ constexpr inline std::enable_if_t<std::is_pointer_v<T>, R> POINTER_TO_INT(T p) n
 	#define RESTRICT_FUNC
 	// squirrel.h does a #define printf DevMsg which leads to warnings when we try
 	// to use printf as the prototype format function. Using __printf__ instead.
-	#define FMTFUNCTION( fmtargnumber, firstvarargnumber ) __attribute__ (( format( __printf__, fmtargnumber, firstvarargnumber )))
+	//
+	// This is deliberately empty, matching the _MSC_VER branch above. GCC rejects
+	// __attribute__((format(...))) on an out-of-line *member* function definition
+	// ("no attributes allowed in function definition"), and FMTFUNCTION appears on
+	// 125 definitions across 41 files here. The attribute is still accepted on the
+	// declarations in the headers, so keeping it there preserves -Wformat; only
+	// the repeat on the definition is dropped, which is exactly what the MSVC
+	// build has always done.
+	#define FMTFUNCTION( a, b )
 
 	// dimhotepus: Allow compiler optimize allocated pointer access.
 	#define ALLOC_CALL
@@ -455,6 +473,10 @@ constexpr inline std::enable_if_t<std::is_pointer_v<T>, R> POINTER_TO_INT(T p) n
 	// this macro lets us not force inlining in that case
 	#define  FORCEINLINE_TEMPLATE		__forceinline
 #else
+	// FASTCALL is MSVC's __fastcall. No other compiler has an equivalent
+	// calling convention that matters here, and public/ headers use FASTCALL
+	// unconditionally (e.g. public/tier1/generichash.h), so define it empty.
+	#define  FASTCALL
 	#define FORCEINLINE inline __attribute__((always_inline))
 	// dimhotepus: TF2 backport. Drop workaround for old GCC.
 	#define FORCEINLINE_TEMPLATE		FORCEINLINE
@@ -535,7 +557,9 @@ constexpr inline std::enable_if_t<std::is_pointer_v<T>, R> POINTER_TO_INT(T p) n
 #define _wtoi(arg) wcstol(arg, NULL, 10)
 #define _wtoi64(arg) wcstoll(arg, NULL, 10)
 
-typedef uint32 HMODULE;
+// HMODULE carries a GetModuleHandle() result, so it has to be pointer-sized.
+// uint32 truncated it to 32 bits and broke the casts in tier1/interface.cpp.
+typedef void *HMODULE;
 typedef void *HANDLE;
 #endif
 
@@ -704,28 +728,80 @@ static FORCEINLINE double fsel(double fComparand, double fValGE, double fLT)
 #define bswap_64(x) bswap64(x)
 #endif
 
+#elif defined(__GNUC__)
+
+// GCC and Clang provide the byte-swapping primitives as builtins on every
+// target, so this needs no libc header and stays correct on any endianness.
+// The generic #else below only does <byteswap.h>, which is glibc-specific and
+// defines bswap16/32/64 as functions -- leaving the bswap_16/32/64 macros the
+// WordSwapC/DWordSwapC/QWordSwapC templates below expand to undefined.
+#define bswap_16(x) __builtin_bswap16(x)
+#define bswap_32(x) __builtin_bswap32(x)
+#define bswap_64(x) __builtin_bswap64(x)
+
+// MSVC exposes _rotl/_rotr/_rotl64/_rotr64 as intrinsics and clang has its own
+// 64-bit builtins, but GCC's <x86intrin.h> only provides the 32-bit pair. Code
+// that hashes or rotates pointer-sized words (saverestoretypes.h,
+// thirdparty/7zip) uses the MSVC spelling unconditionally, so supply the 64-bit
+// names here. The shift count is masked first because a 64-bit rotate by 64 --
+// which the callers can produce when shifting by a full word -- is undefined.
+#if !defined(__clang__)
+static inline uint64_t _rotl64( uint64_t value, int shift )
+{
+	shift &= 63;
+	return shift ? ( ( value << shift ) | ( value >> ( 64 - shift ) ) ) : value;
+}
+
+static inline uint64_t _rotr64( uint64_t value, int shift )
+{
+	shift &= 63;
+	return shift ? ( ( value >> shift ) | ( value << ( 64 - shift ) ) ) : value;
+}
+#endif
+
 #else
 
 #include <byteswap.h>
 
 #endif
 
+// These dispatch on sizeof(T) rather than constraining themselves to a single
+// width with enable_if_t. The old constraints assumed `long` is 4 bytes, which
+// holds on Windows (LLP64) but not on Linux (LP64), so DWordSwap(long) had no
+// viable overload and BigLong/LittleLong/SwapLong below failed to compile.
+// Dispatching internally keeps every existing call site working and swaps the
+// argument's full width on both data models.
 template <typename T>
-inline std::enable_if_t<std::is_scalar_v<T> && sizeof(T) == 2 && alignof(T) == alignof(unsigned short), T> WordSwapC( T w )
+inline std::enable_if_t<std::is_scalar_v<T>, T> WordSwapC( T w )
 {
-   return static_cast<T>( bswap_16( w ) );
+   if constexpr ( sizeof(T) == 2 )
+      return static_cast<T>( bswap_16( w ) );
+   else if constexpr ( sizeof(T) == 4 )
+      return static_cast<T>( bswap_32( w ) );
+   else
+      return static_cast<T>( bswap_64( w ) );
 }
 
 template <typename T>
-inline std::enable_if_t<std::is_scalar_v<T> && sizeof(T) == 4 && alignof(T) == alignof(unsigned int), T> DWordSwapC( T dw )
+inline std::enable_if_t<std::is_scalar_v<T>, T> DWordSwapC( T dw )
 {
-   return static_cast<T>( bswap_32( dw ) );
+   if constexpr ( sizeof(T) == 2 )
+      return static_cast<T>( bswap_16( dw ) );
+   else if constexpr ( sizeof(T) == 4 )
+      return static_cast<T>( bswap_32( dw ) );
+   else
+      return static_cast<T>( bswap_64( dw ) );
 }
 
 template <typename T>
-inline std::enable_if_t<std::is_scalar_v<T> && sizeof(T) == 8 && alignof(T) == alignof(unsigned long long), T> QWordSwapC( T qdw )
+inline std::enable_if_t<std::is_scalar_v<T>, T> QWordSwapC( T qdw )
 {
-   return static_cast<T>( bswap_64( qdw ) );
+   if constexpr ( sizeof(T) == 2 )
+      return static_cast<T>( bswap_16( qdw ) );
+   else if constexpr ( sizeof(T) == 4 )
+      return static_cast<T>( bswap_32( qdw ) );
+   else
+      return static_cast<T>( bswap_64( qdw ) );
 }
 
 //-------------------------------------

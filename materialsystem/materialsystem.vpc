@@ -25,6 +25,15 @@ $Configuration
 
 $Project "materialsystem"
 {
+	$Folder	"Link libraries"
+	{
+		// cmaterial.cpp materializes a VTF on the CPU and releases it with
+		// DestroyVTFTexture(), so the stub material system needs libvtf bound at
+		// load time; without it libmaterialsystem.so fails to dlopen with
+		//   undefined symbol: DestroyVTFTexture(IVTFTexture*) (fatal)
+		$Lib	vtf
+	}
+
 	$Folder	"Source Files"
 	{
 		$File	"CColorCorrection.cpp"

@@ -42,6 +42,30 @@
 
 #if defined(POSIX)
 #define __cdecl
+// The only #include <crtdbg.h> above is inside `#ifdef _WIN32`, so on Linux
+// the macro that MSVC puts in front of every debug-CRT allocator declaration
+// never exists, and the hook block below -- which is deliberately compiled on
+// POSIX, see the `#elif defined(POSIX)` at the "AttribIfCrt" definition --
+// failed to parse with:
+//   memoverride.cpp:684:1: Fehler: »_CRTALLOCATOR« bezeichnet keinen Typ
+//   memoverride.cpp:705:1: Fehler: »_CRTALLOCATOR« bezeichnet keinen Typ
+//   memoverride.cpp:726:16: Fehler: »_calloc_dbg« wurde in diesem
+//       Gültigkeitsbereich nicht definiert
+//   memoverride.cpp:730:1: Fehler: »_CRTALLOCATOR« bezeichnet keinen Typ
+//   memoverride.cpp:744:1: Fehler: »_CRTALLOCATOR« bezeichnet keinen Typ
+// (the 726 report is a cascade: 705 failed to parse, so the definition the
+// _calloc_dbg_impl call refers to was never declared.)
+// On MSVC the annotation is documentation-only, so expanding it to nothing
+// keeps the declarations valid without changing codegen -- the same
+// convention cmake/compat/sal.h already uses for the rest of crtdbg.h.
+// This does not touch the process allocator: NO_MEMOVERRIDE_NEW_DELETE still
+// excludes the global operator new/delete block, and the _dbg hooks defined
+// here (_malloc_dbg, _calloc_dbg, _realloc_dbg, _expand_dbg, _free_dbg,
+// _msize_dbg) are referenced by nothing in this tree and are never called by
+// glibc, which spells its own debug allocator __malloc_dbg.
+#ifndef _CRTALLOCATOR
+#define _CRTALLOCATOR
+#endif
 #endif
 
 #if defined( _WIN32 )

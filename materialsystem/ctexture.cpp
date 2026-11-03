@@ -3561,6 +3561,10 @@ void CTexture::WriteDataToShaderAPITexture( int nFrameCount, int nFaceCount, int
 	if ( ( m_nFlags & TEXTUREFLAGS_STAGING_MEMORY ) != 0 )
 		return;
 
+	// If we're a staging texture, there's nothing to do.
+	if ( ( m_nFlags & TEXTUREFLAGS_STAGING_MEMORY ) != 0 )
+		return;
+
 	for ( int iFrame = 0; iFrame < m_nFrameCount; ++iFrame )
 	{
 		Modify( iFrame );
@@ -3596,7 +3600,13 @@ void CTexture::NotifyUnloadedFile()
 	Q_snprintf( pCacheFileName, sizeof( pCacheFileName ), "materials/%s" TEXTURE_FNAME_EXTENSION, pName );
 
 	// Let filesystem know that the file is uncached, so it knows
-	// what to do with tracking info
+	// what to do with tracking info.
+	// Port: tier2 DisconnectTier2Libraries() nulls g_pFullFileSystem during
+	// AppSystem teardown, before CTextureManager::Shutdown releases textures
+	// (same hazard class as the guarded `materials` null in sys_dll2.cpp and
+	// gl_draw.cpp). At shutdown there is no tracking left to update.
+	if ( !g_pFullFileSystem )
+		return;
 	g_pFullFileSystem->NotifyFileUnloaded( pCacheFileName, "GAME" );
 }
 

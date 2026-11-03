@@ -92,7 +92,8 @@ public:
 	void Init( CDmElement *pOwner, const char *pAttributeName, int flags = 0 );
 
 	// Returns the type of elements allowed into this attribute. UTL_INVAL_SYMBOL allows everything.
-	UtlSymId_t GetElementType() const;
+	// Disabled with the definition below: CDmaElement has no Data() member.
+	//UtlSymId_t GetElementType() const;
 
 	// Get/set
 	void Set( T* pElement );
@@ -388,7 +389,7 @@ protected:
 		// dimhotepus: Prevent nullptr dereference.
 		Assert(m_pStorage);
 		if (!m_pStorage)
-			Error(__FUNCTION__ " has no storage pointer.\n");
+			Error("%s has no storage pointer.\n", __FUNCTION__);
 
 		return *m_pStorage;
 	}
@@ -397,7 +398,7 @@ protected:
 		// dimhotepus: Prevent nullptr dereference.
 		Assert(m_pStorage);
 		if (!m_pStorage)
-			Error(__FUNCTION__ " has no storage pointer.\n");
+			Error("%s has no storage pointer.\n", __FUNCTION__);
 
 		return *m_pStorage;
 	}
@@ -406,7 +407,7 @@ protected:
 		// dimhotepus: Prevent nullptr dereference.
 		Assert(m_pStorage);
 		if (!m_pStorage)
-			Error(__FUNCTION__ " has no storage pointer.\n");
+			Error("%s has no storage pointer.\n", __FUNCTION__);
 
 		return *m_pStorage;
 	}
@@ -415,7 +416,7 @@ protected:
 		// dimhotepus: Prevent nullptr dereference.
 		Assert(m_pStorage);
 		if (!m_pStorage)
-			Error(__FUNCTION__ " has no storage pointer.\n");
+			Error("%s has no storage pointer.\n", __FUNCTION__);
 
 		return *m_pStorage;
 	}
@@ -1184,11 +1185,17 @@ inline void CDmaElement<T>::Init( CDmElement *pOwner, const char *pAttributeName
 	}
 }
 
+/*
+// CDmaElement derives from CDmaVar<DmElementHandle_t> and has no Data() member,
+// so this never compiled on GCC -- the reference port comments it out for the
+// same reason. Nothing calls it (only the CDmaElementArrayConstBase variant
+// below is used), so the declaration at the top of the class is disabled too.
 template <class T>
 inline UtlSymId_t CDmaElement<T>::GetElementType() const
 {
 	return this->Data().m_ElementType;
 }
+*/
 
 template <class T>
 inline T* CDmaElement<T>::GetElement() const

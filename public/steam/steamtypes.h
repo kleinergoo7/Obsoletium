@@ -58,12 +58,27 @@ typedef unsigned __int32 uintp;
 
 #else // _WIN32
 
+// tier0/basetypes.h already declares int8/uint8 .. int64/uint64 and
+// intp/uintp in terms of the stdint/std types, and it gets intp/uintp right
+// (std::ptrdiff_t / std::size_t). Redeclaring them here as 'long long' /
+// 'int' both conflicts with those declarations and mis-sizes intp on LP64,
+// so only fall back to local definitions when basetypes.h is absent.
+#ifndef SE_PUBLIC_TIER0_BASETYPES_H_
 typedef short int16;
 typedef unsigned short uint16;
 typedef int int32;
 typedef unsigned int uint32;
 typedef long long int64;
 typedef unsigned long long uint64;
+
+#ifdef X64BITS
+typedef long long intp;
+typedef unsigned long long uintp;
+#else
+typedef int intp;
+typedef unsigned int uintp;
+#endif
+#endif // SE_PUBLIC_TIER0_BASETYPES_H_
 
 // [u]int64 are actually defined as 'long long' and gcc 64-bit
 // doesn't automatically consider them the same as 'long int'.
@@ -73,14 +88,6 @@ typedef unsigned long long uint64;
 // otherwise confuse the compiler.
 typedef long int lint64;
 typedef unsigned long int ulint64;
-
-#ifdef X64BITS
-typedef long long intp;
-typedef unsigned long long uintp;
-#else
-typedef int intp;
-typedef unsigned int uintp;
-#endif
 
 #endif // else _WIN32
 

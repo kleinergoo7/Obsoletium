@@ -11,7 +11,12 @@ $Configuration
 {
 	$Compiler
 	{
-		$AdditionalIncludeDirectories	"$BASE;..\"
+		// "..\" is a Windows relative path; spell the module directory out so
+		// the include survives on Linux. BaseShader.cpp and ShaderDLL.cpp include
+		// IShaderSystem.h (materialsystem/IShaderSystem.h) by bare name, and
+		// shadersystem.cpp needs GetShaderDLLInternal() from this module, so
+		// without it libshaderlib.so never compiled.
+		$AdditionalIncludeDirectories	"$BASE;..\;$SRCDIR\materialsystem"
 		$PreprocessorDefinitions		"$BASE;FAST_MATERIALVAR_ACCESS"
 		$PreprocessorDefinitions		"$BASE;fopen=dont_use_fopen" [$WINDOWS]
 	}

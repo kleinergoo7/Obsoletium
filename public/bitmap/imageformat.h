@@ -364,10 +364,12 @@ namespace ImageLoader
 	// convert back and forth from D3D format to ImageFormat, regardless of
 	// whether it's supported or not
 	//-----------------------------------------------------------------------------
+#ifdef _WIN32
 	[[nodiscard]] ImageFormat D3DFormatToImageFormat( D3DFORMAT format );
 	[[nodiscard]] ImageFormat DxgiFormatToImageFormat( DXGI_FORMAT format );
 	[[nodiscard]] D3DFORMAT ImageFormatToD3DFormat( ImageFormat format );
 	[[nodiscard]] DXGI_FORMAT ImageFormatToDxgiFormat( ImageFormat format );
+#endif // _WIN32
 
 	// Flags for ResampleRGBA8888
 	enum

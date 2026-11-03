@@ -450,8 +450,17 @@ DBG_INTERFACE void LogV( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist
 // be consistent with the Warning prototype.
 DBG_INTERFACE void Error( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
 #else
-DBG_INTERFACE void Error [[noreturn]] ( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
-DBG_INTERFACE void ErrorV [[noreturn]] ( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist );
+// [[noreturn]] belongs at the front of the declaration, appertaining to the
+// function. Writing it between the declarator-id and the parameter list, as
+// this used to, is ill-formed in C++ and GCC does not merely warn: it parses
+// "void Error [[noreturn]] ( const tchar *, ... )" as a K&R-style function
+// *definition* with an old-style parameter list, and every later call of the
+// form Error( __FUNCTION__ ": ...", x ) is then parsed as a declaration and
+// fails with "expected ')' before string constant" (game/shared/usermessages.cpp
+// had five such call sites). The trailing FMTFUNCTION attribute is fine where
+// it is, since attributes after the parameter list appertain to the function.
+DBG_INTERFACE [[noreturn]] void Error( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE [[noreturn]] void ErrorV( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist );
 
 #endif
 

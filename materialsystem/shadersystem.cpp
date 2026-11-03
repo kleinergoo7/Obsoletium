@@ -1581,6 +1581,18 @@ bool CShaderSystem::CanUseEditorMaterials() const
 //-----------------------------------------------------------------------------
 void CShaderSystem::TakeSnapshot( )
 {
+#if defined( DEDICATED )
+	// Snapshotting exists to bind render state into a texture for the linear ->
+	// gamma transition, so it is meaningless without a renderer. The one thing
+	// this function needs to get that decision, g_pHardwareConfig, is a
+	// CHardwareConfig instance whose only implementation lives in the DX9 and
+	// DX11 shader API modules (shaderapidx9.vpc / shaderapidx11.vpc); a headless
+	// server loads neither, so the reference below left libmaterialsystem.so
+	// with an undefined g_pHardwareConfig and its dlopen failed with
+	//   undefined symbol: g_pHardwareConfig (fatal)
+	// Dropping the body also drops the g_pHardwareConfig reference, so no
+	// placeholder object is needed for a path the server can never take.
+#else
 	Assert( m_pRenderState );
 	Assert( m_nModulation < SnapshotTypeCount() );
 
@@ -1596,6 +1608,7 @@ void CShaderSystem::TakeSnapshot( )
 	// Take a snapshot...
 	snapshotList.m_Snapshot[snapshotList.m_nPassCount] = g_pShaderAPI->TakeSnapshot();
 	++snapshotList.m_nPassCount;
+#endif // DEDICATED
 }
 
 

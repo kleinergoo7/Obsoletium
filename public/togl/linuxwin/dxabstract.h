@@ -373,7 +373,10 @@ struct RenderTargetState_t
 
 	static inline bool LessFunc( const RenderTargetState_t &lhs, const RenderTargetState_t &rhs ) 
 	{
-		COMPILE_TIME_ASSERT( sizeof( lhs.m_pRenderTargets[0] ) == sizeof( uint32 ) );
+		// Port: was `== sizeof( uint32 )`, a 32-bit assumption. On 64-bit
+		// each element is pointer-sized, and the uint64 pair reads below
+		// then compare exactly one pointer each, which is correct.
+		COMPILE_TIME_ASSERT( sizeof( lhs.m_pRenderTargets[0] ) == sizeof( void* ) );
 		uint64 lhs0 = reinterpret_cast<const uint64 *>(lhs.m_pRenderTargets)[0];
 		uint64 rhs0 = reinterpret_cast<const uint64 *>(rhs.m_pRenderTargets)[0];
 		if ( lhs0 < rhs0 )

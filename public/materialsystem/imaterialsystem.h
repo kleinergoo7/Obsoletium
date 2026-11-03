@@ -1091,6 +1091,12 @@ public:
 	// Creates a texture compositor template for use in later code. 
 	virtual bool				AddTextureCompositorTemplate( const char* pName, KeyValues* pTmplDesc, int nTexCompositeTemplateFlags = 0 ) = 0;
 
+	// Which shader API is in use: 1 = DX9, 2 = GL, 3 = anything else.
+	// The CS:S 2024 shader model (stdshader_dx9.so) is a prebuilt module that
+	// reads this through a fixed IMaterialSystem vtable slot, so its position
+	// here is part of the ABI with that module - do not move it.
+	virtual int				GetShaderAPIKind() const = 0;
+
 	// Performs final verification of all compositor templates (after they've all been initially loaded).
 	virtual bool				VerifyTextureCompositorTemplates( ) = 0;
 

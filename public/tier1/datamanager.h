@@ -148,7 +148,7 @@ public:
 			return StoragePointer(pLock)->GetData();
 		}
 
-		return nullptr;
+		return {};
 	}
 
 	// Use GetData() to translate pointer to LOCK_TYPE
@@ -159,7 +159,7 @@ public:
 		{
 			return StoragePointer(pLock)->GetData();
 		}
-		return nullptr;
+		return {};
 	}
 
 	// Use GetData() to translate pointer to LOCK_TYPE
@@ -171,7 +171,7 @@ public:
 		{
 			return StoragePointer(pLock)->GetData();
 		}
-		return nullptr;
+		return {};
 	}
 
 	// Wrapper to match implementation of allocation with typed storage & alloc params.

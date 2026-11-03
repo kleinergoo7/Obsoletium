@@ -458,7 +458,7 @@ inline ButtonCode_t ButtonCodeToJoystickButtonCode( ButtonCode_t code, int nDesi
 		return code;
 
 	if ( IsJoystickCode( code ) && !IsSteamControllerCode( code ) )
-		nDesiredJoystick = clamp( nDesiredJoystick, 0, to_underlying(MAX_JOYSTICKS) - 1 );
+		nDesiredJoystick = clamp( nDesiredJoystick, 0, (int)to_underlying(MAX_JOYSTICKS) - 1 );
 	else
 		nDesiredJoystick = clamp( nDesiredJoystick, 0, MAX_STEAM_CONTROLLERS - 1 );
 
