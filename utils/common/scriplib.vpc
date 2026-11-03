@@ -1,0 +1,80 @@
+//-----------------------------------------------------------------------------
+//	SCRLIPLIB.VPC
+//
+//	Linux port addition: builds the Valve tokenizer (utils/common/scriplib.cpp)
+//	as its own module. Upstream never gives it a project of its own: the tool
+//	projects (bspzip, hammer_dll, vbsp, ...) compile scriplib.cpp directly, and
+//	game/choreoobjects/sceneimage.cpp -- which wraps the SAME free tokenizer
+//	functions -- relied on the host process exposing them from its global scope.
+//	The dedicated server has no such host symbols, so dlopen of libserver_CStrike
+//	failed once the generator started putting real link lists on shared modules:
+//	    libserver_CStrike.so: undefined symbol: scriptlib
+//	    libserver_CStrike.so: undefined symbol:
+//	    _ZNK{...}  (TokenAvailable / ParseFromMemory / GetToken(int, ...))
+//	sceneimage.cpp also compiled LZMA_OpportunisticCompress, fulfilled by the
+//	utils/lzma/lzma module linked separately from choreoobjects.vpc.
+//
+//	scriplib.cpp talks to the tier2 FileSystem interface (g_pFullFileSystem ->
+//	ReadFile/WriteFile/FindFirst/FindNext/FileExists/GetFileTime) and tier1
+//	string helpers, so this module is a normal shared library in the tier chain
+//	rather than a freestanding thirdparty unit.
+//
+//	It also calls three cmdlib helpers (AddScriptToStack -> ExpandPath/LoadFile,
+//	CScriptLib::FindFiles -> CmdLib_ExpandWithBasePaths), so cmdlib.cpp is
+//	compiled into the same module; without it the load failed with:
+//	    libserver_CStrike.so: undefined symbol: _Z10ExpandPathPKc
+//	    libserver_CStrike.so: undefined symbol: _Z8LoadFilePKcPPv
+//	    libserver_CStrike.so: undefined symbol:
+//	    _Z26CmdLib_ExpandWithBasePathsR10CUtlVectorI10CUtlString10CUtlMemoryIS0_lEEPKc
+//
+//	cmdlib.cpp in turn hands the FileSystem plumbing to filesystem_tools.cpp,
+//	which is where qdir and FileSystem_Init/Term/GetFactory live, so that file
+//	is compiled in as well (a follow-up load failure reported exactly those):
+//	    libserver_CStrike.so: undefined symbol: qdir
+//	    libserver_CStrike.so: undefined symbol: FileSystem_Init(-based manglings)
+//	The VMPI delegates inside it are #ifdef MPI and do not compile on this port.
+//-----------------------------------------------------------------------------
+
+$Macro SRCDIR		"..\.."
+
+$Include "$SRCDIR\vpc_scripts\source_lib_base.vpc"
+
+$Configuration
+{
+	$Compiler
+	{
+		$AdditionalIncludeDirectories	"..\common;$BASE"
+	}
+}
+
+$Project "scriplib"
+{
+	$Folder	"Source Files"
+	{
+		$File	"..\common\scriplib.cpp"
+		$File	"..\common\cmdlib.cpp"
+		$File	"..\common\filesystem_tools.cpp"
+		// Linux port: scriplib.cpp calls ParseFileInternal from
+		// public/filesystem_helpers.cpp. Every game DLL compiles that TU
+		// itself, but nothing lower does, so dlopen of liblauncher.so (whose
+		// closure reaches scriplib through choreoobjects, before engine or
+		// client are mapped) failed with:
+		//   libscriplib.so: undefined symbol: _Z18ParseFileInternalPKcPcPbPK14characterset_t
+		// Compile the TU into this module; it only needs filesystem.h and
+		// tier1/characterset.h, both already on the include path.
+		$File	"$SRCDIR\public\filesystem_helpers.cpp" [$LINUXALL]
+	}
+
+	$Folder	"Link Libraries"
+	{
+		// g_pFullFileSystem is defined by filesystem_stdio on this port
+		// (filesystem/basefilesystem.cpp), so it must be a real edge and not
+		// a resolved-elsewhere globals gamble at dlopen time.
+		$Lib	filesystem_stdio
+		// filesystem_tools.cpp boots the loader through appframework
+		// (Sys_GetFactoryThis / Sys_LoadInterfaceT / FileSystem_*Module).
+		$Lib	appframework
+		$Lib	tier1
+		$Lib	tier0
+	}
+}
